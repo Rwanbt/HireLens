@@ -18,11 +18,7 @@
 <br />
 
 <div align="center">
-
-> ⚠️ **This project is under active development. Expect breaking changes.**
-> &nbsp;
-> ⚠️ **Ce projet est en cours de développement actif. Des changements importants sont à prévoir.**
-
+<p>⚠️ <strong>This project is under active development. Expect breaking changes.</strong><br/>⚠️ <strong>Ce projet est en cours de développement actif. Des changements importants sont à prévoir.</strong></p>
 </div>
 
 <br />
