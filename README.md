@@ -11,6 +11,17 @@
   [![Build](https://img.shields.io/badge/build-passing-brightgreen?style=for-the-badge)](#)
   [![Tests](https://img.shields.io/badge/tests-17%20passed-brightgreen?style=for-the-badge)](#)
   [![Offline](https://img.shields.io/badge/offline-ready-blue?style=for-the-badge)](#)
+  [![Status](https://img.shields.io/badge/status-work%20in%20progress-orange?style=for-the-badge)](#)
+
+</div>
+
+<br />
+
+<div align="center">
+
+> ⚠️ **This project is under active development. Expect breaking changes.**
+> &nbsp;
+> ⚠️ **Ce projet est en cours de développement actif. Des changements importants sont à prévoir.**
 
 </div>
 
