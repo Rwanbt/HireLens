@@ -1,0 +1,28 @@
+# Copy to hirelens.toml or set HIRELENS_CONFIG to this file.
+
+# Default provider when --provider is omitted: openai, ollama, or lmstudio.
+provider = "ollama"
+
+# Privacy-first mode: when true, no LLM HTTP provider is called.
+offline = false
+
+# Enable JSON response caching under cache_dir.
+cache = true
+cache_dir = ".cache"
+
+# HTTP timeout for cloud and local LLM providers.
+timeout_seconds = 60
+
+[openai]
+# Prefer OPENAI_API_KEY in the environment for secrets.
+# api_key = "sk-..."
+model = "gpt-4o-mini"
+base_url = "https://api.openai.com/v1"
+
+[ollama]
+model = "llama3.1"
+base_url = "http://localhost:11434"
+
+[lmstudio]
+model = "local-model"
+base_url = "http://localhost:1234/v1"

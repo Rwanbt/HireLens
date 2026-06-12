@@ -1,0 +1,32 @@
+# Build artifacts
+/target/
+
+# Cache directory
+/.cache/
+
+# Local configuration
+/hirelens.toml
+
+# Generated files
+/optimized-cv.md
+/cv.md
+*.pdf
+
+# Binary assets (not needed in repo)
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

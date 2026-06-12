@@ -1,0 +1,5 @@
+# Senior Rust Platform Engineer
+
+We need a senior engineer with strong Rust, Tokio, REST service design, PostgreSQL,
+Docker, Kubernetes, and CI/CD experience. Familiarity with LLM systems is a plus.
+
