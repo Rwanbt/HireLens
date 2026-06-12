@@ -13,10 +13,12 @@
 *.pdf
 
 # Binary assets (not needed in repo)
-*.png
 *.jpg
 *.jpeg
 *.gif
+# Allow project banners
+!Banner_HireLens.png
+!Banner_HireLens_light.png
 
 # IDE
 .idea/

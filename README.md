@@ -1,47 +1,194 @@
-# HireLens
+<div align="center">
+  <img src="Banner_HireLens.png" alt="HireLens Banner" width="100%" />
+</div>
 
-HireLens is a production-oriented CLI for CV optimization. The binary is named `adaptai`.
+<br />
 
-Core safety rule: LLMs only return structured JSON. Rust validates every adaptation and renders the final CV.
+<div align="center">
 
-## Commands
+  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
+  [![Rust Edition](https://img.shields.io/badge/Rust-2021-orange?style=for-the-badge&logo=rust)](https://www.rust-lang.org)
+  [![Build](https://img.shields.io/badge/build-passing-brightgreen?style=for-the-badge)](#)
+  [![Tests](https://img.shields.io/badge/tests-17%20passed-brightgreen?style=for-the-badge)](#)
+  [![Offline](https://img.shields.io/badge/offline-ready-blue?style=for-the-badge)](#)
 
-```sh
-adaptai audit examples/cv.md examples/job.txt --offline
-adaptai audit examples/cv.md examples/job.txt --offline --json
-adaptai audit examples/cv.md examples/job.txt --offline --min-score 70
-adaptai adapt examples/cv.md examples/job.txt --offline --output optimized-cv.md
-adaptai adapt examples/cv.md examples/job.txt --offline --diff --min-score 60
-adaptai build examples/cv.md --output cv.md
+</div>
+
+<br />
+
+<div align="center">
+
+  **[ 🇬🇧 &nbsp;[Read in English](#-english) &nbsp;|&nbsp; 🇫🇷 &nbsp;[Lire en Français](#-français) ]**
+
+</div>
+
+---
+
+## 🇬🇧 English
+
+> **[🇫🇷 Lire en Français →](#-français)**
+
+### What is HireLens?
+
+**HireLens** is a production-grade CLI tool that analyzes CVs against job descriptions using ATS scoring and AI assistance — and produces optimized CVs **without hallucinations**.
+
+The core principle: **LLMs only return structured JSON. Rust validates every adaptation and renders the final CV.** No AI-invented skills. No fabricated experience. Ever.
+
+---
+
+### ✨ Features
+
+| Feature | Description |
+|---|---|
+| 🎯 **ATS Scoring** | HashSet-based skill matching with a normalized 0–100 score |
+| 🤖 **Multi-Provider LLM** | OpenAI, Ollama, LM Studio — switch with one flag |
+| 🔒 **Anti-Hallucination** | Every adapted skill and bullet is validated against the original CV |
+| 📴 **Offline Mode** | Full audit and adaptation without any LLM call |
+| 💾 **Smart Cache** | SHA-256 hashed LLM responses stored in `.cache/` |
+| 🔏 **Privacy-First** | Local-only mode with Ollama or LM Studio |
+| 📄 **Clean Export** | Markdown output rendered by Rust templates; optional PDF via Pandoc |
+| 📊 **JSON Output** | Machine-readable `--json` flag for CI/CD pipelines |
+
+---
+
+### 🏗 Architecture
+
+```
+src/
+├── cli/        # clap-based commands: audit, adapt, build
+├── llm/        # LLM trait + OpenAI / Ollama / LM Studio providers
+├── core/       # ATS scoring, skill extraction, validation, pipeline
+├── parser/     # Markdown + YAML frontmatter CV parser
+├── export/     # Rust template renderer + Pandoc PDF bridge
+└── utils/      # Config loader (TOML + env), SHA-256 cache
 ```
 
-`audit` prints a human-readable report by default. Use `--json` for automation.
-`adapt` writes Markdown rendered by Rust only; `--diff` shows how the rendered CV
-differs from the original Markdown.
+**Pipeline:**
 
-Provider selection:
+```
+CV (Markdown+YAML) ──► Parse ──► Extract skills (LLM → JSON)
+                                        │
+Job description ────► Parse ──► ATS Score (Rust)
+                                        │
+                              Generate adaptation (LLM → JSON)
+                                        │
+                              Validate (no new skills allowed) ◄── REJECT if hallucinated
+                                        │
+                              Render final CV (Rust template)
+                                        │
+                              Markdown / PDF output
+```
 
-```sh
+---
+
+### 🚀 Installation
+
+**Prerequisites:** [Rust toolchain](https://rustup.rs/) 1.75+
+
+```bash
+git clone https://github.com/Rwanbt/HireLens.git
+cd HireLens
+cargo build --release
+# Binary: ./target/release/adaptai
+```
+
+Add to your PATH:
+```bash
+# Linux / macOS
+export PATH="$PATH:$(pwd)/target/release"
+
+# Windows (PowerShell)
+$env:PATH += ";$(pwd)\target\release"
+```
+
+---
+
+### 📖 Usage
+
+#### `audit` — ATS analysis
+
+```bash
+# Human-readable report (offline, no LLM needed)
+adaptai audit examples/cv.md examples/job.txt --offline
+
+# JSON output for CI/CD
+adaptai audit examples/cv.md examples/job.txt --offline --json
+
+# Fail if score is below threshold
+adaptai audit examples/cv.md examples/job.txt --offline --min-score 70
+```
+
+**Example output:**
+```
+ATS audit
+
+Score: 63/100
+Skill match: 62%
+
+Matched skills: docker, kubernetes, postgresql, rust, tokio
+Missing skills: ci/cd, llm, rest
+```
+
+#### `adapt` — Optimized CV generation
+
+```bash
+# Adapt with offline extraction
+adaptai adapt examples/cv.md examples/job.txt --offline --output optimized-cv.md
+
+# Show diff between original and adapted CV
+adaptai adapt examples/cv.md examples/job.txt --offline --diff --min-score 60
+
+# Use a cloud LLM
+adaptai adapt examples/cv.md examples/job.txt --provider openai --output optimized-cv.md
+```
+
+#### `build` — Clean CV rendering
+
+```bash
+# Render to Markdown
+adaptai build examples/cv.md --output cv.md
+
+# Render to PDF (requires Pandoc)
+adaptai build examples/cv.md --output cv.pdf --pdf
+```
+
+---
+
+### 🤖 LLM Providers
+
+| Provider | Flag | Default URL | Auth |
+|---|---|---|---|
+| **OpenAI** | `--provider openai` | `https://api.openai.com/v1` | `OPENAI_API_KEY` env var |
+| **Ollama** | `--provider ollama` | `http://localhost:11434` | None |
+| **LM Studio** | `--provider lmstudio` | `http://localhost:1234/v1` | None |
+
+```bash
+# OpenAI
+export OPENAI_API_KEY="sk-..."
 adaptai audit cv.md job.txt --provider openai
+
+# Ollama (requires Ollama running locally)
 adaptai audit cv.md job.txt --provider ollama
+
+# LM Studio (requires LM Studio server running)
 adaptai audit cv.md job.txt --provider lmstudio
 ```
 
-OpenAI reads `OPENAI_API_KEY`, then `$HIRELENS_CONFIG`, then the OS config file
-`hirelens/config.toml`.
+---
 
-Configuration can also live in `./hirelens.toml`. Start from:
+### ⚙️ Configuration
 
-```sh
-copy hirelens.example.toml hirelens.toml
+Copy the example config and edit:
+
+```bash
+cp hirelens.example.toml hirelens.toml
 ```
 
-Example:
-
 ```toml
-provider = "ollama"
-offline = false
-cache = true
+# hirelens.toml
+provider = "ollama"       # default provider
+offline = false           # privacy-first offline mode
+cache = true              # cache LLM responses
 cache_dir = ".cache"
 timeout_seconds = 60
 
@@ -58,12 +205,352 @@ model = "local-model"
 base_url = "http://localhost:1234/v1"
 ```
 
-Environment variables such as `OPENAI_API_KEY`, `OPENAI_MODEL`,
-`OLLAMA_MODEL`, and `LMSTUDIO_MODEL` override provider-specific config.
+**Environment variable overrides:**
 
-Local defaults:
+| Variable | Description |
+|---|---|
+| `OPENAI_API_KEY` | OpenAI API key |
+| `OPENAI_MODEL` | Override OpenAI model |
+| `OLLAMA_MODEL` | Override Ollama model |
+| `OLLAMA_BASE_URL` | Override Ollama URL |
+| `LMSTUDIO_MODEL` | Override LM Studio model |
+| `LMSTUDIO_BASE_URL` | Override LM Studio URL |
+| `HIRELENS_CONFIG` | Path to custom config file |
 
-- Ollama: `http://localhost:11434`, model `llama3.1`
-- LM Studio: `http://localhost:1234/v1`, model `local-model`
+---
 
-Override with `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `LMSTUDIO_BASE_URL`, or `LMSTUDIO_MODEL`.
+### 🔒 Anti-Hallucination System
+
+HireLens enforces strict rules at every stage:
+
+1. **JSON-only LLM output** — the model is constrained to return structured JSON, never free-form text
+2. **Skill whitelist** — every skill in the adapted output must exist in the original CV
+3. **Bullet validation** — every adapted bullet must be traceable to an original bullet
+4. **Rust rendering** — the final CV text is assembled by Rust templates, not by the LLM
+5. **Diff visibility** — `--diff` flag exposes every change between original and adapted output
+
+```
+Original CV skills: [Rust, Docker, Kubernetes, PostgreSQL]
+LLM proposes:       [Rust, Docker, Kubernetes, PostgreSQL, Go]  ← REJECTED
+Validated output:   [Rust, Docker, Kubernetes, PostgreSQL]      ✓
+```
+
+---
+
+### 🧪 Tests
+
+```bash
+cargo test
+# 17 tests passed — cli, llm, core, parser, export, utils
+```
+
+---
+
+### 📋 CV Format
+
+HireLens expects a Markdown file with a YAML frontmatter block:
+
+```markdown
+---
+name: Jane Doe
+headline: Senior Backend Engineer
+summary: Systems engineer focused on reliable distributed systems.
+skills:
+  - Rust
+  - Docker
+  - Kubernetes
+experience:
+  - id: exp-1
+    company: Acme Corp
+    role: Backend Engineer
+    start: "2020"
+    end: Present
+    bullets:
+      - Built microservices with Rust and Tokio.
+education:
+  - institution: MIT
+    degree: B.S. Computer Science
+    year: "2018"
+---
+```
+
+---
+
+### 📄 License
+
+[MIT](LICENSE) — © 2026 HireLens
+
+---
+
+<div align="right">
+
+**[🔝 Back to top](#)**
+
+</div>
+
+---
+---
+
+## 🇫🇷 Français
+
+> **[🇬🇧 Read in English →](#-english)**
+
+### Qu'est-ce que HireLens ?
+
+**HireLens** est un outil CLI production-ready qui analyse des CVs face à des offres d'emploi via un scoring ATS et une assistance IA — et produit des CVs optimisés **sans hallucinations**.
+
+Le principe fondamental : **les LLMs ne retournent que du JSON structuré. Rust valide chaque adaptation et génère le CV final.** Pas de compétences inventées. Pas d'expériences fabriquées. Jamais.
+
+---
+
+### ✨ Fonctionnalités
+
+| Fonctionnalité | Description |
+|---|---|
+| 🎯 **Score ATS** | Matching de compétences via HashSet, score normalisé 0–100 |
+| 🤖 **Multi-Provider LLM** | OpenAI, Ollama, LM Studio — un seul flag pour changer |
+| 🔒 **Anti-Hallucination** | Chaque compétence et bullet adaptée est validée contre le CV original |
+| 📴 **Mode Hors-ligne** | Audit et adaptation complets sans aucun appel LLM |
+| 💾 **Cache intelligent** | Réponses LLM hashées SHA-256, stockées dans `.cache/` |
+| 🔏 **Privacy-First** | Mode local pur avec Ollama ou LM Studio |
+| 📄 **Export propre** | Markdown rendu par des templates Rust ; PDF optionnel via Pandoc |
+| 📊 **Sortie JSON** | Flag `--json` pour intégration CI/CD |
+
+---
+
+### 🏗 Architecture
+
+```
+src/
+├── cli/        # Commandes clap : audit, adapt, build
+├── llm/        # Trait LLM + providers OpenAI / Ollama / LM Studio
+├── core/       # Scoring ATS, extraction de compétences, validation, pipeline
+├── parser/     # Parseur Markdown + frontmatter YAML
+├── export/     # Moteur de rendu Rust + pont PDF Pandoc
+└── utils/      # Chargement config (TOML + env), cache SHA-256
+```
+
+**Pipeline :**
+
+```
+CV (Markdown+YAML) ──► Parse ──► Extraction compétences (LLM → JSON)
+                                        │
+Offre d'emploi ─────► Parse ──► Score ATS (Rust)
+                                        │
+                              Génération adaptation (LLM → JSON)
+                                        │
+                              Validation (aucune nouvelle compétence) ◄── REJET si hallucination
+                                        │
+                              Rendu CV final (template Rust)
+                                        │
+                              Sortie Markdown / PDF
+```
+
+---
+
+### 🚀 Installation
+
+**Prérequis :** [Rust toolchain](https://rustup.rs/) 1.75+
+
+```bash
+git clone https://github.com/Rwanbt/HireLens.git
+cd HireLens
+cargo build --release
+# Binaire : ./target/release/adaptai
+```
+
+Ajout au PATH :
+```bash
+# Linux / macOS
+export PATH="$PATH:$(pwd)/target/release"
+
+# Windows (PowerShell)
+$env:PATH += ";$(pwd)\target\release"
+```
+
+---
+
+### 📖 Utilisation
+
+#### `audit` — Analyse ATS
+
+```bash
+# Rapport lisible (mode hors-ligne, sans LLM)
+adaptai audit examples/cv.md examples/job.txt --offline
+
+# Sortie JSON pour CI/CD
+adaptai audit examples/cv.md examples/job.txt --offline --json
+
+# Échoue si le score est sous le seuil
+adaptai audit examples/cv.md examples/job.txt --offline --min-score 70
+```
+
+**Exemple de sortie :**
+```
+ATS audit
+
+Score: 63/100
+Skill match: 62%
+
+Matched skills: docker, kubernetes, postgresql, rust, tokio
+Missing skills: ci/cd, llm, rest
+```
+
+#### `adapt` — Génération du CV optimisé
+
+```bash
+# Adaptation en mode hors-ligne
+adaptai adapt examples/cv.md examples/job.txt --offline --output cv-optimise.md
+
+# Afficher le diff entre le CV original et adapté
+adaptai adapt examples/cv.md examples/job.txt --offline --diff --min-score 60
+
+# Utiliser un LLM cloud
+adaptai adapt examples/cv.md examples/job.txt --provider openai --output cv-optimise.md
+```
+
+#### `build` — Rendu propre du CV
+
+```bash
+# Rendu en Markdown
+adaptai build examples/cv.md --output cv.md
+
+# Rendu en PDF (nécessite Pandoc)
+adaptai build examples/cv.md --output cv.pdf --pdf
+```
+
+---
+
+### 🤖 Providers LLM
+
+| Provider | Flag | URL par défaut | Auth |
+|---|---|---|---|
+| **OpenAI** | `--provider openai` | `https://api.openai.com/v1` | Variable `OPENAI_API_KEY` |
+| **Ollama** | `--provider ollama` | `http://localhost:11434` | Aucune |
+| **LM Studio** | `--provider lmstudio` | `http://localhost:1234/v1` | Aucune |
+
+```bash
+# OpenAI
+export OPENAI_API_KEY="sk-..."
+adaptai audit cv.md job.txt --provider openai
+
+# Ollama (Ollama doit tourner en local)
+adaptai audit cv.md job.txt --provider ollama
+
+# LM Studio (serveur LM Studio doit être démarré)
+adaptai audit cv.md job.txt --provider lmstudio
+```
+
+---
+
+### ⚙️ Configuration
+
+Copier le fichier exemple et l'adapter :
+
+```bash
+cp hirelens.example.toml hirelens.toml
+```
+
+```toml
+# hirelens.toml
+provider = "ollama"       # provider par défaut
+offline = false           # mode hors-ligne privacy-first
+cache = true              # mise en cache des réponses LLM
+cache_dir = ".cache"
+timeout_seconds = 60
+
+[openai]
+model = "gpt-4o-mini"
+base_url = "https://api.openai.com/v1"
+
+[ollama]
+model = "llama3.1"
+base_url = "http://localhost:11434"
+
+[lmstudio]
+model = "local-model"
+base_url = "http://localhost:1234/v1"
+```
+
+**Surcharges par variables d'environnement :**
+
+| Variable | Description |
+|---|---|
+| `OPENAI_API_KEY` | Clé API OpenAI |
+| `OPENAI_MODEL` | Surcharge le modèle OpenAI |
+| `OLLAMA_MODEL` | Surcharge le modèle Ollama |
+| `OLLAMA_BASE_URL` | Surcharge l'URL Ollama |
+| `LMSTUDIO_MODEL` | Surcharge le modèle LM Studio |
+| `LMSTUDIO_BASE_URL` | Surcharge l'URL LM Studio |
+| `HIRELENS_CONFIG` | Chemin vers un fichier de config personnalisé |
+
+---
+
+### 🔒 Système Anti-Hallucination
+
+HireLens applique des règles strictes à chaque étape :
+
+1. **Sortie LLM JSON uniquement** — le modèle est contraint à retourner du JSON structuré, jamais du texte libre
+2. **Liste blanche de compétences** — chaque compétence dans le CV adapté doit exister dans le CV original
+3. **Validation des bullets** — chaque bullet adapté doit être traçable à un bullet original
+4. **Rendu Rust** — le texte final du CV est assemblé par des templates Rust, pas par le LLM
+5. **Visibilité du diff** — le flag `--diff` expose chaque changement entre l'original et l'adapté
+
+```
+Compétences CV original : [Rust, Docker, Kubernetes, PostgreSQL]
+LLM propose :             [Rust, Docker, Kubernetes, PostgreSQL, Go]  ← REJETÉ
+Sortie validée :          [Rust, Docker, Kubernetes, PostgreSQL]      ✓
+```
+
+---
+
+### 🧪 Tests
+
+```bash
+cargo test
+# 17 tests passés — cli, llm, core, parser, export, utils
+```
+
+---
+
+### 📋 Format du CV
+
+HireLens attend un fichier Markdown avec un bloc frontmatter YAML :
+
+```markdown
+---
+name: Jean Dupont
+headline: Ingénieur Backend Senior
+summary: Ingénieur systèmes spécialisé dans les services distribués fiables.
+skills:
+  - Rust
+  - Docker
+  - Kubernetes
+experience:
+  - id: exp-1
+    company: Acme Corp
+    role: Ingénieur Backend
+    start: "2020"
+    end: Present
+    bullets:
+      - Conçu des microservices avec Rust et Tokio.
+education:
+  - institution: École Polytechnique
+    degree: Diplôme d'ingénieur
+    year: "2018"
+---
+```
+
+---
+
+### 📄 Licence
+
+[MIT](LICENSE) — © 2026 HireLens
+
+---
+
+<div align="right">
+
+**[🔝 Retour en haut](#)**
+
+</div>
