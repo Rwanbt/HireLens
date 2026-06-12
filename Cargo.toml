@@ -6,7 +6,7 @@ description = "Hybrid AI-powered CV optimization engine with strict anti-halluci
 license = "MIT"
 
 [[bin]]
-name = "adaptai"
+name = "hirelens"
 path = "src/main.rs"
 
 [dependencies]

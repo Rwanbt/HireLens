@@ -9,7 +9,7 @@ use crate::llm::{LlmProviderKind, LlmRouter};
 use crate::utils::config::Config;
 
 #[derive(Debug, Parser)]
-#[command(name = "adaptai")]
+#[command(name = "hirelens")]
 #[command(about = "Hybrid AI-powered CV optimization engine")]
 #[command(version)]
 pub struct Args {

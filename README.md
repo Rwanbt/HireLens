@@ -89,7 +89,7 @@ Job description ────► Parse ──► ATS Score (Rust)
 git clone https://github.com/Rwanbt/HireLens.git
 cd HireLens
 cargo build --release
-# Binary: ./target/release/adaptai
+# Binary: ./target/release/hirelens
 ```
 
 Add to your PATH:
@@ -109,13 +109,13 @@ $env:PATH += ";$(pwd)\target\release"
 
 ```bash
 # Human-readable report (offline, no LLM needed)
-adaptai audit examples/cv.md examples/job.txt --offline
+hirelens audit examples/cv.md examples/job.txt --offline
 
 # JSON output for CI/CD
-adaptai audit examples/cv.md examples/job.txt --offline --json
+hirelens audit examples/cv.md examples/job.txt --offline --json
 
 # Fail if score is below threshold
-adaptai audit examples/cv.md examples/job.txt --offline --min-score 70
+hirelens audit examples/cv.md examples/job.txt --offline --min-score 70
 ```
 
 **Example output:**
@@ -133,23 +133,23 @@ Missing skills: ci/cd, llm, rest
 
 ```bash
 # Adapt with offline extraction
-adaptai adapt examples/cv.md examples/job.txt --offline --output optimized-cv.md
+hirelens adapt examples/cv.md examples/job.txt --offline --output optimized-cv.md
 
 # Show diff between original and adapted CV
-adaptai adapt examples/cv.md examples/job.txt --offline --diff --min-score 60
+hirelens adapt examples/cv.md examples/job.txt --offline --diff --min-score 60
 
 # Use a cloud LLM
-adaptai adapt examples/cv.md examples/job.txt --provider openai --output optimized-cv.md
+hirelens adapt examples/cv.md examples/job.txt --provider openai --output optimized-cv.md
 ```
 
 #### `build` — Clean CV rendering
 
 ```bash
 # Render to Markdown
-adaptai build examples/cv.md --output cv.md
+hirelens build examples/cv.md --output cv.md
 
 # Render to PDF (requires Pandoc)
-adaptai build examples/cv.md --output cv.pdf --pdf
+hirelens build examples/cv.md --output cv.pdf --pdf
 ```
 
 ---
@@ -165,13 +165,13 @@ adaptai build examples/cv.md --output cv.pdf --pdf
 ```bash
 # OpenAI
 export OPENAI_API_KEY="sk-..."
-adaptai audit cv.md job.txt --provider openai
+hirelens audit cv.md job.txt --provider openai
 
 # Ollama (requires Ollama running locally)
-adaptai audit cv.md job.txt --provider ollama
+hirelens audit cv.md job.txt --provider ollama
 
 # LM Studio (requires LM Studio server running)
-adaptai audit cv.md job.txt --provider lmstudio
+hirelens audit cv.md job.txt --provider lmstudio
 ```
 
 ---
@@ -356,7 +356,7 @@ Offre d'emploi ─────► Parse ──► Score ATS (Rust)
 git clone https://github.com/Rwanbt/HireLens.git
 cd HireLens
 cargo build --release
-# Binaire : ./target/release/adaptai
+# Binaire : ./target/release/hirelens
 ```
 
 Ajout au PATH :
@@ -376,13 +376,13 @@ $env:PATH += ";$(pwd)\target\release"
 
 ```bash
 # Rapport lisible (mode hors-ligne, sans LLM)
-adaptai audit examples/cv.md examples/job.txt --offline
+hirelens audit examples/cv.md examples/job.txt --offline
 
 # Sortie JSON pour CI/CD
-adaptai audit examples/cv.md examples/job.txt --offline --json
+hirelens audit examples/cv.md examples/job.txt --offline --json
 
 # Échoue si le score est sous le seuil
-adaptai audit examples/cv.md examples/job.txt --offline --min-score 70
+hirelens audit examples/cv.md examples/job.txt --offline --min-score 70
 ```
 
 **Exemple de sortie :**
@@ -400,23 +400,23 @@ Missing skills: ci/cd, llm, rest
 
 ```bash
 # Adaptation en mode hors-ligne
-adaptai adapt examples/cv.md examples/job.txt --offline --output cv-optimise.md
+hirelens adapt examples/cv.md examples/job.txt --offline --output cv-optimise.md
 
 # Afficher le diff entre le CV original et adapté
-adaptai adapt examples/cv.md examples/job.txt --offline --diff --min-score 60
+hirelens adapt examples/cv.md examples/job.txt --offline --diff --min-score 60
 
 # Utiliser un LLM cloud
-adaptai adapt examples/cv.md examples/job.txt --provider openai --output cv-optimise.md
+hirelens adapt examples/cv.md examples/job.txt --provider openai --output cv-optimise.md
 ```
 
 #### `build` — Rendu propre du CV
 
 ```bash
 # Rendu en Markdown
-adaptai build examples/cv.md --output cv.md
+hirelens build examples/cv.md --output cv.md
 
 # Rendu en PDF (nécessite Pandoc)
-adaptai build examples/cv.md --output cv.pdf --pdf
+hirelens build examples/cv.md --output cv.pdf --pdf
 ```
 
 ---
@@ -432,13 +432,13 @@ adaptai build examples/cv.md --output cv.pdf --pdf
 ```bash
 # OpenAI
 export OPENAI_API_KEY="sk-..."
-adaptai audit cv.md job.txt --provider openai
+hirelens audit cv.md job.txt --provider openai
 
 # Ollama (Ollama doit tourner en local)
-adaptai audit cv.md job.txt --provider ollama
+hirelens audit cv.md job.txt --provider ollama
 
 # LM Studio (serveur LM Studio doit être démarré)
-adaptai audit cv.md job.txt --provider lmstudio
+hirelens audit cv.md job.txt --provider lmstudio
 ```
 
 ---
