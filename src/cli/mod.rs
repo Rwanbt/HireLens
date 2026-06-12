@@ -25,6 +25,8 @@ enum Command {
     Adapt(AdaptArgs),
     /// Render a CV to Markdown and optionally PDF.
     Build(BuildArgs),
+    /// Open the graphical user interface.
+    Gui(GuiArgs),
 }
 
 #[derive(Debug, ClapArgs)]
@@ -77,6 +79,9 @@ struct BuildArgs {
     pdf: bool,
 }
 
+#[derive(Debug, ClapArgs)]
+pub struct GuiArgs {}
+
 #[derive(Copy, Clone, Debug, ValueEnum)]
 enum ProviderArg {
     Openai,
@@ -91,6 +96,12 @@ impl From<ProviderArg> for LlmProviderKind {
             ProviderArg::Ollama => Self::Ollama,
             ProviderArg::Lmstudio => Self::LmStudio,
         }
+    }
+}
+
+impl Args {
+    pub fn is_gui(&self) -> bool {
+        matches!(self.command, Command::Gui(_))
     }
 }
 
@@ -161,6 +172,8 @@ pub async fn run(args: Args) -> Result<()> {
                 eprintln!("Wrote {}", pdf_path.display());
             }
         }
+        // GUI is handled before the tokio runtime in main.rs
+        Command::Gui(_) => unreachable!("GUI command handled in main"),
     }
 
     Ok(())

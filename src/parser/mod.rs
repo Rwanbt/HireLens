@@ -55,13 +55,17 @@ pub fn parse_cv_markdown(raw: &str) -> Result<Cv> {
 pub fn parse_job_file(path: &Path) -> Result<JobDescription> {
     let raw = std::fs::read_to_string(path)
         .with_context(|| format!("failed to read job description {}", path.display()))?;
-    Ok(JobDescription {
-        title: first_heading(&raw),
-        skills: crate::core::skills::extract_local_skills(&raw)
+    Ok(parse_job_text(&raw))
+}
+
+pub fn parse_job_text(raw: &str) -> JobDescription {
+    JobDescription {
+        title: first_heading(raw),
+        skills: crate::core::skills::extract_local_skills(raw)
             .into_iter()
             .collect(),
-        raw_text: raw,
-    })
+        raw_text: raw.to_owned(),
+    }
 }
 
 fn first_heading(markdown: &str) -> Option<String> {
