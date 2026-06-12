@@ -18,12 +18,6 @@
 <br />
 
 <div align="center">
-<p>⚠️ <strong>This project is under active development. Expect breaking changes.</strong><br/>⚠️ <strong>Ce projet est en cours de développement actif. Des changements importants sont à prévoir.</strong></p>
-</div>
-
-<br />
-
-<div align="center">
 
   **[ 🇬🇧 &nbsp;[Read in English](#-english) &nbsp;|&nbsp; 🇫🇷 &nbsp;[Lire en Français](#-français) ]**
 
@@ -34,6 +28,8 @@
 ## 🇬🇧 English
 
 > **[🇫🇷 Lire en Français →](#-français)**
+
+> ⚠️ **This project is under active development. Expect breaking changes.**
 
 ### What is HireLens?
 
@@ -301,6 +297,8 @@ education:
 ## 🇫🇷 Français
 
 > **[🇬🇧 Read in English →](#-english)**
+
+> ⚠️ **Ce projet est en cours de développement actif. Des changements importants sont à prévoir.**
 
 ### Qu'est-ce que HireLens ?
 
