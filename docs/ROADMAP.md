@@ -231,7 +231,7 @@ Why:
 - [x] **3.2** — README : documenter `hirelens serve` dans la section Usage.
   - 📁 Fichier : `README.md` + `README.fr.md`
 - [x] **3.3** — README : corriger le badge tests "17 passed" → count réel (`cargo test` donne le nombre).
-- [ ] **3.4** — `docs/KNOWN_FAILURE_PATTERNS.md` (signalé manquant par `docs/METRICS.md`).
+- [x] **3.4** — `docs/KNOWN_FAILURE_PATTERNS.md` (signalé manquant par `docs/METRICS.md`).
 - [ ] **3.5** — `cargo install cargo-deny` puis `cargo deny check` (tester `deny.toml`).
 - [ ] **3.6** — 🔽 *dé-priorisé* — `docs/GOOGLE_OAUTH_SETUP.md` (cloud non prioritaire).
 

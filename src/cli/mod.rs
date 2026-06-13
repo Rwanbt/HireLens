@@ -122,7 +122,7 @@ pub async fn run(args: Args) -> Result<()> {
     let config = Config::load()?;
     match args.command {
         Command::Audit(args) => {
-            let router = LlmRouter::new(resolve_provider(args.provider, &config)?)?;
+            let router = build_router(args.provider, &config)?;
             let pipeline = Pipeline::new(router);
             let report = pipeline
                 .audit(
@@ -143,7 +143,7 @@ pub async fn run(args: Args) -> Result<()> {
             enforce_min_score(report.score.score, args.min_score)?;
         }
         Command::Adapt(args) => {
-            let router = LlmRouter::new(resolve_provider(args.provider, &config)?)?;
+            let router = build_router(args.provider, &config)?;
             let pipeline = Pipeline::new(router);
             let adapted = pipeline
                 .adapt(
@@ -195,6 +195,15 @@ pub async fn run(args: Args) -> Result<()> {
     Ok(())
 }
 
+/// Builds an LlmRouter. When no provider is requested (no flag, no config), uses the
+/// local-first fallback chain (Ollama → LM Studio) — never clouds.
+fn build_router(provider: Option<ProviderArg>, config: &Config) -> Result<LlmRouter> {
+    if provider.is_none() && config.provider.is_none() {
+        return Ok(LlmRouter::new_local_with_fallback());
+    }
+    LlmRouter::new(resolve_provider(provider, config)?)
+}
+
 fn resolve_provider(provider: Option<ProviderArg>, config: &Config) -> Result<LlmProviderKind> {
     if let Some(provider) = provider {
         return Ok(provider.into());
@@ -205,6 +214,7 @@ fn resolve_provider(provider: Option<ProviderArg>, config: &Config) -> Result<Ll
             .ok_or_else(|| anyhow::anyhow!("unknown provider in config: {provider}"));
     }
 
+    // Should not be reached — build_router handles the no-provider case.
     Ok(LlmProviderKind::Ollama)
 }
 
