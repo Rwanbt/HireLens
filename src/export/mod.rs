@@ -128,6 +128,10 @@ pub fn render_cv(cv: &Cv, adaptation: Option<&AdaptationResponse>) -> String {
     out
 }
 
+pub trait PdfRenderer {
+    fn render(&self, markdown: &str) -> anyhow::Result<Vec<u8>>;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

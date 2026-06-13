@@ -239,8 +239,9 @@ impl HireLensApp {
         let (tx, rx) = mpsc::channel();
         self.pdf_rx = Some(rx);
         std::thread::spawn(move || {
-            let pdf_result = crate::export::typst_render::export_pdf(&markdown)
-                .map_err(|e| e.to_string());
+            use crate::export::typst_render::TypstRenderer;
+            use crate::export::PdfRenderer as _;
+            let pdf_result = TypstRenderer.render(&markdown).map_err(|e| e.to_string());
             match pdf_result {
                 Ok(bytes) => {
                     let status = rfd::FileDialog::new()

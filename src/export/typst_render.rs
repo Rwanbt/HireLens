@@ -1,4 +1,6 @@
 use anyhow::Result;
+
+use crate::export::PdfRenderer;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime};
 use typst::syntax::{FileId, Source, VirtualPath};
@@ -165,6 +167,18 @@ fn inline_markup(s: &str) -> String {
     }
 
     result
+}
+
+// ──────────────────────────────────────────────────────────────
+// TypstRenderer — implements PdfRenderer
+// ──────────────────────────────────────────────────────────────
+
+pub struct TypstRenderer;
+
+impl PdfRenderer for TypstRenderer {
+    fn render(&self, markdown: &str) -> anyhow::Result<Vec<u8>> {
+        export_pdf(markdown)
+    }
 }
 
 // ──────────────────────────────────────────────────────────────

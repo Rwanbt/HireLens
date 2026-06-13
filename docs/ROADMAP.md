@@ -185,22 +185,22 @@ Why:
 
 ### 2.1 — Abstraction `PdfRenderer`
 
-- [ ] **2.1.1 — Définir le trait**
+- [x] **2.1.1 — Définir le trait**
   - 📁 Fichier : `src/export/mod.rs`
   - 🔧 Action : `pub trait PdfRenderer { fn render(&self, markdown: &str) -> anyhow::Result<Vec<u8>>; }`
   - ✅ Vérifier : `cargo build`.
 
-- [ ] **2.1.2 — Implémenter pour Typst**
+- [x] **2.1.2 — Implémenter pour Typst**
   - 📁 Fichier : `src/export/typst_render.rs`
   - 🔧 Action : créer `pub struct TypstRenderer;` qui implémente `PdfRenderer` en appelant la logique de `export_pdf()` existante.
   - ✅ Vérifier : `cargo test` (les 4 tests typst passent toujours).
 
-- [ ] **2.1.3 — Brancher l'appelant sur le trait**
+- [x] **2.1.3 — Brancher l'appelant sur le trait**
   - 📁 Fichier : `src/gui/app.rs`, méthode `start_export_pdf()`
   - 🔧 Action : appeler `TypstRenderer.render(&markdown)` au lieu de `export_pdf(&markdown)` directement.
   - ✅ Vérifier : `cargo build` + test manuel du bouton PDF.
 
-- [ ] **2.1.4 — ADR-0005**
+- [x] **2.1.4 — ADR-0005**
   - 📁 Fichier : `docs/adr/0005-pdf-renderer-trait.md` (nouveau)
   - 🔧 Action : documenter le choix Typst + porte de sortie (fallback futur via le trait).
 
