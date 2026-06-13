@@ -27,6 +27,8 @@ enum Command {
     Build(BuildArgs),
     /// Open the graphical user interface.
     Gui(GuiArgs),
+    /// Start a local web server with the HireLens UI.
+    Serve(ServeArgs),
 }
 
 #[derive(Debug, ClapArgs)]
@@ -81,6 +83,16 @@ struct BuildArgs {
 
 #[derive(Debug, ClapArgs)]
 pub struct GuiArgs {}
+
+#[derive(Debug, ClapArgs)]
+pub struct ServeArgs {
+    /// TCP port to listen on.
+    #[arg(long, default_value_t = 8080)]
+    pub port: u16,
+    /// Open the default browser automatically after the server starts.
+    #[arg(long)]
+    pub open: bool,
+}
 
 #[derive(Copy, Clone, Debug, ValueEnum)]
 enum ProviderArg {
@@ -174,6 +186,9 @@ pub async fn run(args: Args) -> Result<()> {
         }
         // GUI is handled before the tokio runtime in main.rs
         Command::Gui(_) => unreachable!("GUI command handled in main"),
+        Command::Serve(args) => {
+            crate::web::serve(args.port, args.open).await?;
+        }
     }
 
     Ok(())

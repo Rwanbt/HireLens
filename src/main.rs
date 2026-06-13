@@ -6,6 +6,7 @@ mod gui;
 mod llm;
 mod parser;
 mod utils;
+mod web;
 
 use anyhow::Result;
 use clap::Parser;
