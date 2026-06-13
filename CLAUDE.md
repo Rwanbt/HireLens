@@ -1,3 +1,5 @@
+@AGENTS.md
+
 # HireLens — Claude Code Guidelines
 
 ## Qu'est-ce que HireLens

@@ -1,0 +1,27 @@
+# AI_SUMMARY — export
+
+> **Auto-generated 2026-06-13 04:38** — do not edit manually.
+> Source: `tools/ai_docs/generate_ai_summary.py`
+> For purpose, thread model and constraints, read `AI_CONTEXT.md`.
+
+## Purpose
+Renders a validated `Cv` (or adapted CV) to Markdown, PDF (via Pandoc), or HTML. This module is the **last stage of the pipeline** — it only receives data that has already passed `validate_adaptation()`. It must never re-introduce LLM output.
+
+## Hot files
+- `mod.rs` — render entry points
+
+## Files & LOC
+| File | LOC | |
+|------|-----|--|
+| `mod.rs` | 152 | |
+| `typst_render.rs` | 181 | |
+| **Total** | **333** | |
+
+## Rust API
+- `MarkdownExporter` (struct)
+- `PdfExporter` (struct)
+
+## Rust Functions
+- `export_pdf()`
+- `markdown_to_typst()`
+- `render_cv()`
