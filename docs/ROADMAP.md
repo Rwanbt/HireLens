@@ -87,7 +87,7 @@ Trois principes non négociables :
 
 ### 1.1 — Moteur de matching (comptage d'occurrences)
 
-- [ ] **1.1.1 — Créer le module `matching`**
+- [x] **1.1.1 — Créer le module `matching`**
   - 📁 Fichier : `src/core/matching.rs` (nouveau) + ajouter `pub mod matching;` dans `src/core/mod.rs`
   - 🔧 Action : créer ce contenu exact :
     ```rust
@@ -120,7 +120,7 @@ Trois principes non négociables :
     ```
   - ✅ Vérifier : `cargo build` → "Finished" sans erreur.
 
-- [ ] **1.1.2 — Tester le comptage**
+- [x] **1.1.2 — Tester le comptage**
   - 📁 Fichier : `src/core/matching.rs` (ajouter un `#[cfg(test)] mod tests` à la fin)
   - 🔧 Action : un test qui construit un `JobDescription` avec `raw_text` contenant "rust" 2 fois et vérifie `occurrences == 2`.
   - ✅ Vérifier : `cargo test count` → le test passe.

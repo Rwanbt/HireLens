@@ -1,0 +1,71 @@
+use crate::core::skills::normalize_skill;
+use crate::core::JobDescription;
+
+/// Combien de fois un skill apparaît dans le texte brut de l'offre.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SkillSignal {
+    pub skill: String,
+    pub occurrences: usize,
+}
+
+/// Pour chaque skill de l'offre, compte ses occurrences dans `job.raw_text`.
+pub fn count_skill_occurrences(job: &JobDescription) -> Vec<SkillSignal> {
+    let haystack = job.raw_text.to_lowercase();
+    job.skills
+        .iter()
+        .map(|raw| {
+            let skill = normalize_skill(raw);
+            let occurrences = if skill.is_empty() {
+                0
+            } else {
+                haystack.matches(skill.as_str()).count()
+            };
+            SkillSignal { skill, occurrences }
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_job(raw_text: &str, skills: Vec<&str>) -> JobDescription {
+        JobDescription {
+            title: None,
+            raw_text: raw_text.to_string(),
+            skills: skills.iter().map(|s| s.to_string()).collect(),
+        }
+    }
+
+    #[test]
+    fn count_skill_occurrences_counts_correctly() {
+        let job = make_job("We need rust developers. Rust experience is required.", vec!["Rust"]);
+        let signals = count_skill_occurrences(&job);
+        assert_eq!(signals.len(), 1);
+        assert_eq!(signals[0].skill, "rust");
+        assert_eq!(signals[0].occurrences, 2);
+    }
+
+    #[test]
+    fn count_skill_occurrences_zero_for_absent_skill() {
+        let job = make_job("We need Python and Django expertise.", vec!["rust"]);
+        let signals = count_skill_occurrences(&job);
+        assert_eq!(signals[0].occurrences, 0);
+    }
+
+    #[test]
+    fn count_skill_occurrences_empty_skill_yields_zero() {
+        let job = make_job("Some job text", vec!["  "]);
+        let signals = count_skill_occurrences(&job);
+        assert_eq!(signals[0].occurrences, 0);
+    }
+
+    #[test]
+    fn count_skill_occurrences_multiple_skills() {
+        let job = make_job("docker docker docker kubernetes kubernetes", vec!["Docker", "Kubernetes", "Rust"]);
+        let signals = count_skill_occurrences(&job);
+        assert_eq!(signals[0].occurrences, 3);
+        assert_eq!(signals[1].occurrences, 2);
+        assert_eq!(signals[2].occurrences, 0);
+    }
+}
