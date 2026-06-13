@@ -1,6 +1,20 @@
 use crate::core::skills::normalize_skill;
 use crate::core::JobDescription;
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum SkillStatus {
+    Present,
+    Missing,
+    Weak,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct ScoreReason {
+    pub skill: String,
+    pub status: SkillStatus,
+    pub occurrences: usize,
+}
+
 /// Combien de fois un skill apparaît dans le texte brut de l'offre.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SkillSignal {

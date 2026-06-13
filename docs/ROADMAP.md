@@ -127,7 +127,7 @@ Trois principes non négociables :
 
 ### 1.2 — Structure d'explication (dépend de 1.1)
 
-- [ ] **1.2.1 — Définir `ScoreReason`**
+- [x] **1.2.1 — Définir `ScoreReason`**
   - 📁 Fichier : `src/core/matching.rs`
   - 🔧 Action : ajouter :
     ```rust
@@ -144,7 +144,7 @@ Trois principes non négociables :
   - 🔧 Règle de statut : `Present` si le skill est dans le CV. Sinon `Missing` si occurrences ≥ 2, sinon `Weak`.
   - ✅ Vérifier : `cargo build`.
 
-- [ ] **1.2.2 — Brancher dans `AuditReport`**
+- [x] **1.2.2 — Brancher dans `AuditReport`**
   - 📁 Fichier : `src/core/ats.rs`
   - 🔧 Action : ajouter le champ `pub explanations: Vec<crate::core::matching::ScoreReason>` à `AuditReport`, et le remplir dans `compute_audit()` à partir de `count_skill_occurrences()`.
   - ⚠️ Tout endroit qui construit un `AuditReport` à la main (chercher avec : `grep -rn "AuditReport {"`) devra ajouter `explanations: vec![]` ou la vraie valeur, sinon ça ne compile pas.

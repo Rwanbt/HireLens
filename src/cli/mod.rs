@@ -251,6 +251,7 @@ mod tests {
             job_skills: vec!["kubernetes".into(), "rust".into()],
             matched_skills: vec!["rust".into()],
             missing_skills: vec!["kubernetes".into()],
+            explanations: vec![],
         }
     }
 

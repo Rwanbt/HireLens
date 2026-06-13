@@ -1,6 +1,7 @@
 use hashbrown::HashSet;
 use serde::{Deserialize, Serialize};
 
+use crate::core::matching::{count_skill_occurrences, ScoreReason, SkillStatus};
 use crate::core::skills::{normalize_skill, skill_set};
 use crate::core::{Cv, JobDescription};
 
@@ -11,6 +12,7 @@ pub struct AuditReport {
     pub job_skills: Vec<String>,
     pub matched_skills: Vec<String>,
     pub missing_skills: Vec<String>,
+    pub explanations: Vec<ScoreReason>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,6 +32,21 @@ pub fn compute_audit(cv: &Cv, job: &JobDescription) -> AuditReport {
         matched.len() as f32 / job_skills.len() as f32
     };
 
+    let signals = count_skill_occurrences(job);
+    let explanations = signals
+        .into_iter()
+        .map(|sig| {
+            let status = if cv_skills.contains(&sig.skill) {
+                SkillStatus::Present
+            } else if sig.occurrences >= 2 {
+                SkillStatus::Missing
+            } else {
+                SkillStatus::Weak
+            };
+            ScoreReason { skill: sig.skill, status, occurrences: sig.occurrences }
+        })
+        .collect();
+
     AuditReport {
         score: AtsScore {
             skill_match_ratio: ratio,
@@ -39,6 +56,7 @@ pub fn compute_audit(cv: &Cv, job: &JobDescription) -> AuditReport {
         job_skills: sorted(job_skills),
         matched_skills: matched,
         missing_skills: missing,
+        explanations,
     }
 }
 
