@@ -3,6 +3,8 @@ use std::sync::Arc;
 use anyhow::Result;
 use async_trait::async_trait;
 
+use crate::utils::config::Config;
+
 use super::provider::{
     AdaptationRequest, AdaptationResponse, ExtractSkillsRequest, ExtractSkillsResponse,
     LlmProvider, LlmProviderKind,
@@ -27,11 +29,20 @@ pub struct GuiRouterOptions {
 #[derive(Clone)]
 pub struct LlmRouter {
     provider: Arc<dyn LlmProvider>,
+    /// Used as a cache-key discriminator so Ollama and OpenAI results are never mixed.
+    name: String,
+}
+
+impl LlmRouter {
+    pub fn provider_name(&self) -> &str {
+        &self.name
+    }
 }
 
 impl LlmRouter {
     /// CLI mode: reads API key from env / config file.
     pub fn new(kind: LlmProviderKind) -> Result<Self> {
+        let name = kind.as_str().to_owned();
         let provider: Arc<dyn LlmProvider> = match kind {
             LlmProviderKind::OpenAi => Arc::new(OpenAiProvider::from_env()?),
             LlmProviderKind::Ollama => Arc::new(OllamaProvider::default()),
@@ -40,11 +51,12 @@ impl LlmRouter {
                 anyhow::bail!("Use LlmRouter::from_gui for Gemini in GUI mode")
             }
         };
-        Ok(Self { provider })
+        Ok(Self { provider, name })
     }
 
     /// GUI mode: uses settings panel values + keyring / stored OAuth2 token.
     pub async fn from_gui(kind: LlmProviderKind, opts: &GuiRouterOptions) -> Result<Self> {
+        let name = kind.as_str().to_owned();
         let provider: Arc<dyn LlmProvider> = match kind {
             LlmProviderKind::Gemini => {
                 let token = crate::auth::get_valid_access_token(
@@ -66,17 +78,24 @@ impl LlmRouter {
                 opts.lmstudio_model.clone(),
             )),
         };
-        Ok(Self { provider })
+        Ok(Self { provider, name })
     }
 
     /// Local-only mode with automatic fallback: Ollama → LM Studio → offline (skip LLM).
-    /// Never falls back to cloud providers.
+    /// Never falls back to cloud providers. Reads URLs/models from Config (env vars or file).
     pub fn new_local_with_fallback() -> Self {
+        let config = Config::load().unwrap_or_default();
         let providers: Vec<Arc<dyn LlmProvider>> = vec![
-            Arc::new(OllamaProvider::default()),
-            Arc::new(LmStudioProvider::default()),
+            Arc::new(OllamaProvider::with_settings(
+                config.ollama_base_url(),
+                config.ollama_model(),
+            )),
+            Arc::new(LmStudioProvider::with_settings(
+                config.lmstudio_base_url(),
+                config.lmstudio_model(),
+            )),
         ];
-        Self { provider: Arc::new(FallbackProvider { providers }) }
+        Self { provider: Arc::new(FallbackProvider { providers }), name: "local-fallback".to_owned() }
     }
 
     pub async fn extract_skills(
@@ -104,6 +123,11 @@ struct FallbackProvider {
 
 impl FallbackProvider {
     fn is_connection_error(e: &anyhow::Error) -> bool {
+        // Prefer the typed reqwest API when available; fall back to string matching
+        // for non-reqwest errors (e.g. plain anyhow!("Connection refused") in tests).
+        if let Some(reqwest_err) = e.downcast_ref::<reqwest::Error>() {
+            return reqwest_err.is_connect();
+        }
         let msg = e.to_string();
         msg.contains("Connection refused")
             || msg.contains("tcp connect")

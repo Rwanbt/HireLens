@@ -142,8 +142,9 @@ impl Pipeline {
         options: PipelineOptions,
     ) -> Result<()> {
         let cache = Cache::configured();
-        let cv_key = cache.key("extract_cv_web", &[], cv_text)?;
-        let job_key = cache.key("extract_job_web", &[], job_text)?;
+        let provider = self.llm.provider_name();
+        let cv_key = cache.key("extract_cv_web", &[], cv_text, provider)?;
+        let job_key = cache.key("extract_job_web", &[], job_text, provider)?;
 
         let extracted_cv = if options.offline {
             crate::llm::offline_extract_skills(ExtractSkillsRequest {
@@ -214,7 +215,7 @@ impl Pipeline {
         let cache = Cache::configured();
         let body = serde_json::to_string(&(cv, job, &allowed_skills))?;
         let combined = format!("{cv_text}{job_text}");
-        let key = cache.key("adapt_web", &[], &format!("{body}{combined}"))?;
+        let key = cache.key("adapt_web", &[], &format!("{body}{combined}"), self.llm.provider_name())?;
         let request = AdaptationRequest {
             cv: cv.clone(),
             job: job.clone(),
@@ -244,8 +245,9 @@ impl Pipeline {
     ) -> Result<()> {
         let cv_text = std::fs::read_to_string(cv_path)?;
         let cache = Cache::configured();
-        let cv_key = cache.key("extract_cv", &[cv_path, job_path], &cv_text)?;
-        let job_key = cache.key("extract_job", &[cv_path, job_path], &job.raw_text)?;
+        let provider = self.llm.provider_name();
+        let cv_key = cache.key("extract_cv", &[cv_path, job_path], &cv_text, provider)?;
+        let job_key = cache.key("extract_job", &[cv_path, job_path], &job.raw_text, provider)?;
 
         let extracted_cv = if options.offline {
             crate::llm::offline_extract_skills(ExtractSkillsRequest {
@@ -315,7 +317,7 @@ impl Pipeline {
     ) -> Result<AdaptationResponse> {
         let cache = Cache::configured();
         let body = serde_json::to_string(&(cv, job, &allowed_skills))?;
-        let key = cache.key("adapt", &[cv_path, job_path], &body)?;
+        let key = cache.key("adapt", &[cv_path, job_path], &body, self.llm.provider_name())?;
         let request = AdaptationRequest {
             cv: cv.clone(),
             job: job.clone(),

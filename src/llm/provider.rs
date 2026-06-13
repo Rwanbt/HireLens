@@ -21,6 +21,15 @@ impl LlmProviderKind {
             _ => None,
         }
     }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::OpenAi => "openai",
+            Self::Ollama => "ollama",
+            Self::LmStudio => "lmstudio",
+            Self::Gemini => "gemini",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

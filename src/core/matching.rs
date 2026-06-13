@@ -1,3 +1,5 @@
+use regex::Regex;
+
 use crate::core::skills::normalize_skill;
 use crate::core::JobDescription;
 
@@ -29,10 +31,15 @@ pub fn count_skill_occurrences(job: &JobDescription) -> Vec<SkillSignal> {
         .iter()
         .map(|raw| {
             let skill = normalize_skill(raw);
+            // Word-boundary regex prevents "rust" from matching inside "frustrated".
+            // regex::escape handles skills with special chars like "C++" or "C#".
             let occurrences = if skill.is_empty() {
                 0
             } else {
-                haystack.matches(skill.as_str()).count()
+                let pattern = format!(r"\b{}\b", regex::escape(&skill));
+                Regex::new(&pattern)
+                    .map(|re| re.find_iter(&haystack).count())
+                    .unwrap_or(0)
             };
             SkillSignal { skill, occurrences }
         })
@@ -49,6 +56,14 @@ mod tests {
             raw_text: raw_text.to_string(),
             skills: skills.iter().map(|s| s.to_string()).collect(),
         }
+    }
+
+    #[test]
+    fn count_skill_occurrences_respects_word_boundary() {
+        // "rust" inside "frustrated" must NOT match
+        let job = make_job("I am frustrated with this job. No Rust mention.", vec!["rust"]);
+        let signals = count_skill_occurrences(&job);
+        assert_eq!(signals[0].occurrences, 1, "'rust' should match 'Rust' but not 'frust-rated'");
     }
 
     #[test]

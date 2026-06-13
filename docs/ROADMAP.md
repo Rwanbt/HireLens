@@ -250,8 +250,8 @@ Why:
 
 ## 📌 Prochaine action
 
-➡️ **Phases 4 et 5 terminées** (2026-06-13) — bugs critiques + sécurité corrigés, 38 tests verts, clippy `-D warnings` propre.
-Prochaine cible : **Phase 8 — Robustesse + documentation** (tâches 8.1 → 8.6, ordre libre).
+➡️ **Phase 8 terminée** (2026-06-13) — 8.1–8.5 livrés, 39 tests verts.
+Prochaine cible : **3.6** — `docs/GOOGLE_OAUTH_SETUP.md` (déprioritisé), ou nouvelle phase à définir.
 
 ---
 
@@ -437,30 +437,30 @@ Prochaine cible : **Phase 8 — Robustesse + documentation** (tâches 8.1 → 8.
 
 > **Ordre libre** — tâches indépendantes.
 
-- [ ] **8.1 — `matching.rs:35` : word-boundary matching**
+- [x] **8.1 — `matching.rs:35` : word-boundary matching**
   - 📁 Fichier : `src/core/matching.rs`
-  - 🔧 Action : remplacer `haystack.matches(skill.as_str()).count()` par une regex word-boundary `\bskill\b`. Ajouter `regex = "1"` dans `Cargo.toml`.
+  - 🔧 Action : remplacer `haystack.matches(skill.as_str()).count()` par une regex word-boundary `\bskill\b`. `regex` déjà dans Cargo.toml.
   - ⚠️ Ce changement modifie les scores — vérifier que les tests de scoring restent cohérents.
   - ✅ Vérifier : `cargo test`.
 
-- [ ] **8.2 — `router.rs:106` : utiliser `reqwest::Error::is_connect()`**
+- [x] **8.2 — `router.rs:106` : utiliser `reqwest::Error::is_connect()`**
   - 📁 Fichier : `src/llm/router.rs`, fonction `is_connection_error`
-  - 🔧 Action : remplacer le string matching sur `e.to_string()` par `e.is_connect()`.
+  - 🔧 Action : `downcast_ref::<reqwest::Error>()` → `is_connect()` en priorité ; fallback string matching pour les erreurs non-reqwest (mocks dans les tests).
   - ✅ Vérifier : `cargo build`.
 
-- [ ] **8.3 — `oauth_server.rs` : vérifier le paramètre `state` PKCE**
-  - 📁 Fichier : `src/auth/oauth_server.rs`
-  - 🔧 Action : stocker le `state` généré avant le redirect, vérifier qu'il correspond au `state` reçu dans le callback. Sans ça, le flow est vulnérable CSRF OAuth2.
+- [x] **8.3 — `oauth_server.rs` : vérifier le paramètre `state` PKCE**
+  - 📁 Fichier : `src/auth/google.rs`
+  - 🔧 Action : déjà implémenté — `google.rs:48` vérifie `if returned_state != state { bail!(...) }`. *(Confirmation au 2026-06-13)*
   - ✅ Vérifier : `cargo build`.
 
-- [ ] **8.4 — `router.rs` : URLs FallbackProvider lues depuis `Config`**
-  - 📁 Fichier : `src/llm/router.rs` + `src/utils/config.rs`
-  - 🔧 Action : lire `config.ollama_url` et `config.lmstudio_url` dans `new_local_with_fallback()` au lieu des URLs hardcodées.
+- [x] **8.4 — `router.rs` : URLs FallbackProvider lues depuis `Config`**
+  - 📁 Fichier : `src/llm/router.rs`
+  - 🔧 Action : `new_local_with_fallback()` appelle `Config::load()` → `config.ollama_base_url()` / `config.lmstudio_base_url()` avec env vars (`OLLAMA_BASE_URL`, `LMSTUDIO_BASE_URL`) et fichier `hirelens.toml`.
   - ✅ Vérifier : `cargo test`.
 
-- [ ] **8.5 — `cache.rs` : inclure le provider dans la clé de cache**
-  - 📁 Fichier : `src/utils/cache.rs`
-  - 🔧 Action : concatener le nom du provider LLM dans le hash SHA-256. Évite de réutiliser un résultat d'Ollama quand on passe sur OpenAI.
+- [x] **8.5 — `cache.rs` : inclure le provider dans la clé de cache**
+  - 📁 Fichier : `src/utils/cache.rs` + `src/core/pipeline.rs`
+  - 🔧 Action : `key()` prend un paramètre `provider: &str` inclus dans le hash SHA-256. `LlmRouter` expose `provider_name()` ; `Pipeline` le passe aux 6 call sites.
   - ✅ Vérifier : `cargo test`.
 
 - [ ] **3.6** — 🔽 *dé-priorisé* — `docs/GOOGLE_OAUTH_SETUP.md` : guide pas-à-pas pour configurer un Client ID Google Cloud.
