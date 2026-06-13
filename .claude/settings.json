@@ -1,0 +1,44 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git status:*)",
+      "Bash(git show:*)",
+      "Bash(cargo check:*)",
+      "Bash(cargo clippy:*)",
+      "Bash(cargo test:*)",
+      "Bash(cargo build:*)",
+      "Bash(cargo fmt:*)",
+      "Read(D:\\App\\HireLens\\**)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'TOOL_INPUT=$(cat); if echo \"$TOOL_INPUT\" | grep -q \"\\-\\-no-verify\"; then echo \"BLOCKED: --no-verify flag detected. Pre-commit hooks must not be skipped.\"; exit 2; fi; exit 0'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'TOOL_INPUT=$(cat); FILE=$(echo \"$TOOL_INPUT\" | grep -o \"\\\"file_path\\\"[[:space:]]*:[[:space:]]*\\\"[^\\\"]*\\\"\" | head -1 | sed \"s/.*\\\"\\([^\\\"]*\\)\\\"$/\\1/\"); if echo \"$FILE\" | grep -qiE \"\\.rs$\"; then echo \"[reminder] Rust file modified — consider using rust-reviewer agent for quality review\"; fi; exit 0'"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/tools/ai_docs/run_hook.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}
