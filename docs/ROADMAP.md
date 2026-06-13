@@ -250,8 +250,8 @@ Why:
 
 ## 📌 Prochaine action
 
-➡️ **Phase 9 terminée** (2026-06-13) — documentation et polish livrés, 39 tests verts, clippy propre, fmt propre.
-Prochaine cible : **3.6** — `docs/GOOGLE_OAUTH_SETUP.md` (déprioritisé) ou fonctionnalité utilisateur à définir.
+➡️ **Phase 9 + tâche 3.6 terminées** (2026-06-13) — documentation complète, 39 tests verts, clippy + fmt propres. Toutes les tâches documentées livrées. Icebox intentionnellement reporté.
+Prochaine action : définir une fonctionnalité produit ou clore le sprint.
 
 ---
 
@@ -463,7 +463,7 @@ Prochaine cible : **3.6** — `docs/GOOGLE_OAUTH_SETUP.md` (déprioritisé) ou f
   - 🔧 Action : `key()` prend un paramètre `provider: &str` inclus dans le hash SHA-256. `LlmRouter` expose `provider_name()` ; `Pipeline` le passe aux 6 call sites.
   - ✅ Vérifier : `cargo test`.
 
-- [ ] **3.6** — 🔽 *dé-priorisé* — `docs/GOOGLE_OAUTH_SETUP.md` : guide pas-à-pas pour configurer un Client ID Google Cloud.
+- [x] **3.6** — `docs/GOOGLE_OAUTH_SETUP.md` : guide pas-à-pas complet (7 étapes + troubleshooting + diagramme flow).
 
 ---
 
