@@ -9,7 +9,7 @@
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
   [![Rust Edition](https://img.shields.io/badge/Rust-2021-orange?style=for-the-badge&logo=rust)](https://www.rust-lang.org)
   [![Build](https://img.shields.io/badge/build-passing-brightgreen?style=for-the-badge)](#)
-  [![Tests](https://img.shields.io/badge/tests-17%20passed-brightgreen?style=for-the-badge)](#)
+  [![Tests](https://img.shields.io/badge/tests-28%20passed-brightgreen?style=for-the-badge)](#)
   [![Offline](https://img.shields.io/badge/offline-ready-blue?style=for-the-badge)](#)
   [![Status](https://img.shields.io/badge/status-work%20in%20progress-orange?style=for-the-badge)](#)
 
@@ -157,6 +157,16 @@ hirelens build examples/cv.md --output cv.pdf --pdf
 hirelens gui
 ```
 
+#### `serve` — Local web server
+
+```bash
+hirelens serve                   # Start on http://localhost:8080
+hirelens serve --port 3000       # Custom port
+hirelens serve --open            # Open browser automatically
+```
+
+Single-page app (dark theme) with audit + adaptation. Useful for quick ad-hoc use without launching the full GUI.
+
 ---
 
 ### 🤖 LLM Providers
@@ -247,7 +257,7 @@ Validated output:   [Rust, Docker, Kubernetes, PostgreSQL]      ✓
 
 ```bash
 cargo test
-# 17 tests passed — cli, llm, core, parser, export, utils
+# 28 tests passed — cli, llm, core, parser, export, utils
 ```
 
 ---

@@ -11,6 +11,8 @@
 /optimized-cv.md
 /cv.md
 *.pdf
+test-*.md
+test-*.pdf
 
 # Binary assets (not needed in repo)
 *.jpg
