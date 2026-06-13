@@ -3,6 +3,9 @@
 targets = []
 
 [licenses]
+# Any license not in this list will fail the check.
+# Strong copyleft (GPL/LGPL/AGPL) excluded — this is a MIT project.
+# MPL-2.0 is file-level copyleft; allowed as transitive dep (resvg, usvg via Typst).
 allow = [
     "MIT",
     "Apache-2.0",
@@ -15,25 +18,42 @@ allow = [
     "CC0-1.0",
     "Zlib",
     "OpenSSL",
+    "BSL-1.0",   # Boost Software License — clipboard-win, error-code (egui dep)
+    "OFL-1.1",   # SIL Open Font License — epaint_default_fonts
+    "MPL-2.0",           # Mozilla Public License — resvg, usvg, option-ext (Typst / dirs deps)
+    "CDLA-Permissive-2.0", # Community Data License Agreement — Typst font data
 ]
-# Deny any unlicensed crate
-unlicensed = "deny"
-# Warn on copyleft (GPL, LGPL, AGPL) — should not appear in a MIT project
-copyleft = "deny"
+
+# epaint_default_fonts uses a non-SPDX Ubuntu Font License ref — explicitly excepted
+[[licenses.exceptions]]
+allow = ["LicenseRef-UFL-1.0"]
+name = "epaint_default_fonts"
 
 [bans]
 # Disallow multiple versions of the same crate (warn by default)
 multiple-versions = "warn"
 # Deny wildcard dependencies
 wildcards = "deny"
-# Deny yanked crates
-[bans.skip-tree]
+
+[[bans.skip-tree]]
 # eframe pulls in multiple wgpu sub-crates — acceptable
 name = "wgpu"
+
+[[bans.skip-tree]]
+# Typst transitive chain pulls in duplicate gif versions (resvg + image)
+name = "gif"
 
 [advisories]
 # Deny crates with known vulnerabilities (RustSec database)
 version = 2
 db-path = "~/.cargo/advisory-db"
 db-urls = ["https://github.com/rustsec/advisory-db"]
-ignore = []
+# Unmaintained transitive deps pulled by Typst/egui — no safe upgrade available.
+# RUSTSEC-2025-0141: bincode 1.3.3 (Typst → syntect → two-face)
+# RUSTSEC-2024-0436: paste (Typst transitive dep)
+# RUSTSEC-2024-0320: yaml-rust (Typst transitive dep)
+ignore = [
+    "RUSTSEC-2025-0141",
+    "RUSTSEC-2024-0436",
+    "RUSTSEC-2024-0320",
+]
