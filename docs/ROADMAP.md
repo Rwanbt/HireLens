@@ -251,7 +251,7 @@ Why:
 ## 📌 Prochaine action
 
 ➡️ **Phases 4 et 5 terminées** (2026-06-13) — bugs critiques + sécurité corrigés, 38 tests verts, clippy `-D warnings` propre.
-Prochaine cible : **Phase 7 — UI Web : refonte & UX** (tâches 7.1 → 7.8, ordre libre).
+Prochaine cible : **Phase 8 — Robustesse + documentation** (tâches 8.1 → 8.6, ordre libre).
 
 ---
 
@@ -399,45 +399,37 @@ Prochaine cible : **Phase 7 — UI Web : refonte & UX** (tâches 7.1 → 7.8, or
 
 > Lire `src/web/ui.html` avant d'éditer. **Ordre libre** — tâches indépendantes.
 
-- [ ] **7.1 — Remplacer `alert()` par des messages d'erreur inline**
+- [x] **7.1 — Remplacer `alert()` par des messages d'erreur inline**
   - 📁 Fichier : `src/web/ui.html`
-  - 🔧 Action : ajouter `<div id="error-bar" class="hidden"></div>` stylisé en rouge. Remplacer chaque `alert(...)` par `showError(message)`.
-  - ✅ Vérifier : `cargo run -- serve --open` → simuler une erreur (champs vides) → message inline, pas d'alert.
+  - 🔧 Action : `<div id="error-bar">` rouge + `showError()` / `clearError()`. `readInputs()`, `analyze()`, `optimize()` n'utilisent plus `alert()`.
 
-- [ ] **7.2 — Reformater et nommer les classes CSS de façon lisible**
+- [x] **7.2 — Reformater et nommer les classes CSS de façon lisible**
   - 📁 Fichier : `src/web/ui.html`
-  - 🔧 Action : reformater le CSS (une propriété par ligne), renommer `.cg→.chip-green`, `.cr→.chip-red`, `.b-blue→.badge-blue`, `.b-green→.badge-green`, `.btn-a→.btn-primary`, `.btn-o→.btn-success`, `.btn-c→.btn-secondary`.
-  - ✅ Vérifier : `cargo build` + rendu visuel identique.
+  - 🔧 Action : CSS reformaté (une propriété par ligne). `.cg→.chip-green`, `.cr→.chip-red`, `.b-blue→.badge-blue`, `.b-green→.badge-green`, `.btn-a→.btn-primary`, `.btn-o→.btn-success`, `.btn-c→.btn-secondary`.
 
-- [ ] **7.3 — Persister CV et offre avec `localStorage`**
+- [x] **7.3 — Persister CV et offre avec `localStorage`**
   - 📁 Fichier : `src/web/ui.html`
-  - 🔧 Action : au `input` sur chaque textarea, `localStorage.setItem('hirelens_cv', value)`. Au chargement, restaurer depuis `localStorage.getItem`.
-  - ✅ Vérifier : saisir un CV → rafraîchir → CV toujours présent.
+  - 🔧 Action : `input` events → `localStorage.setItem`. IIFE `restoreFromStorage()` au chargement.
 
-- [ ] **7.4 — Ajouter le téléchargement du CV optimisé en `.md`**
+- [x] **7.4 — Ajouter le téléchargement du CV optimisé en `.md`**
   - 📁 Fichier : `src/web/ui.html`
-  - 🔧 Action : ajouter un bouton "⬇️ Télécharger .md" à côté de "📋 Copier" via `Blob` + `URL.createObjectURL`.
-  - ✅ Vérifier : optimiser → cliquer → téléchargement de `cv-optimized.md`.
+  - 🔧 Action : bouton "⬇️ Télécharger .md" (id `bdl`) via `Blob` + `URL.createObjectURL` + `a.download = 'cv-optimized.md'`.
 
-- [ ] **7.5 — Empty state : afficher un placeholder avant la première analyse**
+- [x] **7.5 — Empty state : afficher un placeholder avant la première analyse**
   - 📁 Fichier : `src/web/ui.html`
-  - 🔧 Action : afficher `<div id="empty-state">← Collez un CV et une offre pour démarrer</div>` tant qu'aucune analyse n'a été lancée.
-  - ✅ Vérifier : chargement initial → placeholder visible. Après analyse → disparaît.
+  - 🔧 Action : `<div id="empty-state">` visible au démarrage ; caché dans `renderAudit()` via `.classList.add('hidden')`.
 
-- [ ] **7.6 — Provider select : indiquer Gemini comme GUI-only**
+- [x] **7.6 — Provider select : indiquer Gemini comme GUI-only**
   - 📁 Fichier : `src/web/ui.html`
-  - 🔧 Action : ajouter `<option disabled>🌟 Gemini (GUI uniquement)</option>` pour clarifier l'absence.
-  - ✅ Vérifier : le select affiche l'option grisée.
+  - 🔧 Action : `<option disabled>🌟 Gemini (GUI uniquement)</option>` ajouté dans le select.
 
-- [ ] **7.7 — Textareas : passer à `min-height` responsive**
+- [x] **7.7 — Textareas : passer à `min-height` responsive**
   - 📁 Fichier : `src/web/ui.html`
-  - 🔧 Action : remplacer `height:240px` fixe par `min-height:160px; max-height:50vh`.
-  - ✅ Vérifier : redimensionner la fenêtre < 400px → les textareas restent utilisables.
+  - 🔧 Action : `height:240px` → `min-height:160px; max-height:50vh`.
 
-- [ ] **7.8 — Structurer le JS en sections commentées**
+- [x] **7.8 — Structurer le JS en sections commentées**
   - 📁 Fichier : `src/web/ui.html`
-  - 🔧 Action : découper le bloc `<script>` en sections `// === Utilitaires ===`, `// === Rendu ===`, `// === API ===`, `// === Événements ===`.
-  - ✅ Vérifier : `cargo build` + comportement identique.
+  - 🔧 Action : `<script>` découpé en `// === Utilitaires ===`, `// === Rendu ===`, `// === API ===`, `// === Événements ===`. `inputs()` renommé `readInputs()`, `color()→scoreColor()`, `none()→noneLabel()`.
 
 ---
 
