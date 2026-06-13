@@ -72,6 +72,7 @@ pub struct HireLensApp {
     pub(crate) save_status: Option<String>,
     pub(crate) file_rx: Option<mpsc::Receiver<(FileTarget, Option<String>)>>,
     pub(crate) save_rx: Option<mpsc::Receiver<Option<String>>>,
+    pub(crate) pdf_rx: Option<mpsc::Receiver<Result<Vec<u8>, String>>>,
 
     // ── Settings panel ──
     pub(crate) show_settings: bool,
@@ -101,6 +102,7 @@ impl Default for HireLensApp {
             save_status: None,
             file_rx: None,
             save_rx: None,
+            pdf_rx: None,
             show_settings: false,
             settings: GuiSettings::load(),
             settings_status: None,
@@ -123,7 +125,7 @@ impl HireLensApp {
     }
 
     pub(crate) fn is_saving(&self) -> bool {
-        self.save_rx.is_some()
+        self.save_rx.is_some() || self.pdf_rx.is_some()
     }
 
     #[allow(dead_code)] // used in PR 2.5 (Typst PDF export)
@@ -186,6 +188,15 @@ impl HireLensApp {
                 self.ping_rx = None;
             }
         }
+        if let Some(rx) = &self.pdf_rx {
+            if let Ok(result) = rx.try_recv() {
+                self.save_status = Some(match result {
+                    Ok(_) => "✅ PDF enregistré.".to_owned(),
+                    Err(e) => format!("❌ PDF : {e}"),
+                });
+                self.pdf_rx = None;
+            }
+        }
     }
 
     // ── File dialogs ──
@@ -219,6 +230,40 @@ impl HireLensApp {
                 })
                 .unwrap_or(None);
             let _ = tx.send(status);
+            ctx.request_repaint();
+        });
+    }
+
+    pub(crate) fn start_export_pdf(&mut self, markdown: String, ctx: &eframe::egui::Context) {
+        let ctx = ctx.clone();
+        let (tx, rx) = mpsc::channel();
+        self.pdf_rx = Some(rx);
+        std::thread::spawn(move || {
+            let pdf_result = crate::export::typst_render::export_pdf(&markdown)
+                .map_err(|e| e.to_string());
+            match pdf_result {
+                Ok(bytes) => {
+                    let status = rfd::FileDialog::new()
+                        .set_file_name("cv-optimise.pdf")
+                        .add_filter("PDF", &["pdf"])
+                        .save_file()
+                        .map(|path| match std::fs::write(&path, &bytes) {
+                            Ok(()) => {
+                                let _ = open::that(&path);
+                                Ok(bytes)
+                            }
+                            Err(e) => Err(e.to_string()),
+                        });
+                    let result = match status {
+                        Some(r) => r,
+                        None => Err("Annulé".to_owned()),
+                    };
+                    let _ = tx.send(result);
+                }
+                Err(e) => {
+                    let _ = tx.send(Err(e));
+                }
+            }
             ctx.request_repaint();
         });
     }

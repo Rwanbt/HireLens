@@ -333,9 +333,13 @@ fn render_adapted_panel(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Context,
 
         ui.add_space(4.0);
 
-        // PDF export — Phase 2.5 (Typst library)
-        ui.add_enabled(false, egui::Button::new(RichText::new("📄  PDF").size(13.0)))
-            .on_disabled_hover_text("Export PDF via Typst — disponible en Phase 2.5");
+        if ui
+            .add_enabled(!saving, egui::Button::new(RichText::new("📄  PDF").size(13.0)))
+            .on_hover_text("Exporter en PDF via Typst")
+            .clicked()
+        {
+            app.start_export_pdf(markdown.to_owned(), ctx);
+        }
 
         ui.add_space(4.0);
 
