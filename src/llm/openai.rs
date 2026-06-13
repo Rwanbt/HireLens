@@ -31,6 +31,28 @@ impl OpenAiProvider {
             base_url,
         })
     }
+
+    /// GUI mode: checks keyring first, then falls back to env / config file.
+    pub fn from_keyring_or_env() -> Result<Self> {
+        let config = Config::load().unwrap_or_default();
+        let api_key = keyring::Entry::new(
+            crate::auth::KEYRING_SERVICE,
+            crate::auth::KEYRING_OPENAI_ACCOUNT,
+        )
+        .ok()
+        .and_then(|e| e.get_password().ok())
+        .or_else(|| config.openai_api_key())
+        .context(
+            "Clé API OpenAI non configurée. Ajoutez-la dans ⚙️ Paramètres → OpenAI.",
+        )?;
+
+        Ok(Self {
+            client: Client::builder().timeout(config.timeout()).build()?,
+            api_key,
+            model: config.openai_model(),
+            base_url: config.openai_base_url(),
+        })
+    }
 }
 
 #[async_trait]

@@ -43,6 +43,18 @@ struct OllamaResponse {
 }
 
 impl OllamaProvider {
+    /// GUI mode: explicit URL and model instead of reading from config.
+    pub fn with_settings(base_url: String, model: String) -> Self {
+        Self {
+            client: Client::builder()
+                .timeout(std::time::Duration::from_secs(60))
+                .build()
+                .unwrap_or_else(|_| Client::new()),
+            base_url,
+            model,
+        }
+    }
+
     async fn generate_json<T>(&self, prompt: String) -> Result<T>
     where
         T: serde::de::DeserializeOwned,

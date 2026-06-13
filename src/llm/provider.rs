@@ -8,6 +8,7 @@ pub enum LlmProviderKind {
     OpenAi,
     Ollama,
     LmStudio,
+    Gemini,
 }
 
 impl LlmProviderKind {
@@ -16,6 +17,7 @@ impl LlmProviderKind {
             "openai" => Some(Self::OpenAi),
             "ollama" => Some(Self::Ollama),
             "lmstudio" | "lm-studio" | "lm_studio" => Some(Self::LmStudio),
+            "gemini" => Some(Self::Gemini),
             _ => None,
         }
     }

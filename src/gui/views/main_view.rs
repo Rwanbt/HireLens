@@ -7,7 +7,7 @@ use crate::gui::widgets::chips::{badge, error_line, skill_chip};
 use crate::gui::widgets::gauge::render_gauge;
 use crate::gui::{COL_BLUE, COL_GREEN, COL_MUTED, COL_RED, COL_YELLOW};
 
-pub(crate) fn render_header(ctx: &egui::Context) {
+pub(crate) fn render_header(app: &mut HireLensApp, ctx: &egui::Context) {
     egui::TopBottomPanel::top("header")
         .exact_height(42.0)
         .show(ctx, |ui| {
@@ -18,6 +18,18 @@ pub(crate) fn render_header(ctx: &egui::Context) {
                 badge(ui, "Anti-Hallucination", COL_BLUE);
                 badge(ui, "Multi-Provider", COL_BLUE);
                 badge(ui, "Offline Ready", COL_GREEN);
+
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.add_space(12.0);
+                    let label = if app.show_settings { "✖ Fermer" } else { "⚙️" };
+                    if ui.button(RichText::new(label).size(13.0)).clicked() {
+                        if app.show_settings {
+                            app.settings.save();
+                        }
+                        app.show_settings = !app.show_settings;
+                        app.settings_status = None;
+                    }
+                });
             });
         });
 }
@@ -129,6 +141,7 @@ pub(crate) fn render_controls(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Co
                     Provider::Ollama,
                     Provider::LmStudio,
                     Provider::OpenAi,
+                    Provider::Gemini,
                 ] {
                     ui.selectable_value(&mut app.provider, p, p.label());
                 }

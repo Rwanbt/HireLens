@@ -1,3 +1,4 @@
+mod gemini;
 mod http_json;
 mod lmstudio;
 mod ollama;
@@ -12,4 +13,4 @@ pub use provider::{
     AdaptationRequest, AdaptationResponse, ExtractSkillsRequest, ExtractSkillsResponse,
     LlmProvider, LlmProviderKind,
 };
-pub use router::LlmRouter;
+pub use router::{GuiRouterOptions, LlmRouter};

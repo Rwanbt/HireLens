@@ -1,5 +1,6 @@
 mod app;
 pub(crate) mod html_export;
+pub(crate) mod settings;
 mod state;
 mod views;
 mod widgets;

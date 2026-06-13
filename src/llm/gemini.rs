@@ -6,50 +6,38 @@ use crate::llm::http_json::{adaptation_prompt, extract_skills_prompt, post_opena
 use crate::llm::{
     AdaptationRequest, AdaptationResponse, ExtractSkillsRequest, ExtractSkillsResponse, LlmProvider,
 };
-use crate::utils::config::Config;
 
-pub struct LmStudioProvider {
+/// Google Gemini via the OpenAI-compatible endpoint.
+/// Auth: OAuth2 Bearer token (access_token from the PKCE flow).
+const BASE_URL: &str = "https://generativelanguage.googleapis.com/v1beta/openai";
+
+pub struct GeminiProvider {
     client: Client,
-    base_url: String,
+    access_token: String,
     model: String,
 }
 
-impl Default for LmStudioProvider {
-    fn default() -> Self {
-        let config = Config::load().unwrap_or_default();
-        Self {
-            client: Client::builder()
-                .timeout(config.timeout())
-                .build()
-                .unwrap_or_else(|_| Client::new()),
-            base_url: config.lmstudio_base_url(),
-            model: config.lmstudio_model(),
-        }
-    }
-}
-
-impl LmStudioProvider {
-    /// GUI mode: explicit URL and model instead of reading from config.
-    pub fn with_settings(base_url: String, model: String) -> Self {
+impl GeminiProvider {
+    pub fn with_token(access_token: String, model: String) -> Self {
         Self {
             client: Client::builder()
                 .timeout(std::time::Duration::from_secs(60))
                 .build()
                 .unwrap_or_else(|_| Client::new()),
-            base_url,
+            access_token,
             model,
         }
     }
 }
 
 #[async_trait]
-impl LlmProvider for LmStudioProvider {
+impl LlmProvider for GeminiProvider {
     async fn extract_skills(&self, request: ExtractSkillsRequest) -> Result<ExtractSkillsResponse> {
         let prompt = extract_skills_prompt(&request)?;
         post_openai_compatible(
             &self.client,
-            &format!("{}/chat/completions", self.base_url.trim_end_matches('/')),
-            None,
+            &format!("{BASE_URL}/chat/completions"),
+            Some(&self.access_token),
             &self.model,
             prompt,
         )
@@ -60,8 +48,8 @@ impl LlmProvider for LmStudioProvider {
         let prompt = adaptation_prompt(&request)?;
         post_openai_compatible(
             &self.client,
-            &format!("{}/chat/completions", self.base_url.trim_end_matches('/')),
-            None,
+            &format!("{BASE_URL}/chat/completions"),
+            Some(&self.access_token),
             &self.model,
             prompt,
         )
