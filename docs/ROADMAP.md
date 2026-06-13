@@ -250,8 +250,8 @@ Why:
 
 ## 📌 Prochaine action
 
-➡️ **Phase 8 terminée** (2026-06-13) — 8.1–8.5 livrés, 39 tests verts.
-Prochaine cible : **3.6** — `docs/GOOGLE_OAUTH_SETUP.md` (déprioritisé), ou nouvelle phase à définir.
+➡️ **Phase 9 terminée** (2026-06-13) — documentation et polish livrés, 39 tests verts, clippy propre, fmt propre.
+Prochaine cible : **3.6** — `docs/GOOGLE_OAUTH_SETUP.md` (déprioritisé) ou fonctionnalité utilisateur à définir.
 
 ---
 
@@ -464,5 +464,31 @@ Prochaine cible : **3.6** — `docs/GOOGLE_OAUTH_SETUP.md` (déprioritisé), ou 
   - ✅ Vérifier : `cargo test`.
 
 - [ ] **3.6** — 🔽 *dé-priorisé* — `docs/GOOGLE_OAUTH_SETUP.md` : guide pas-à-pas pour configurer un Client ID Google Cloud.
+
+---
+
+## 📄 Phase 9 — Documentation & polish (Sprint 6)
+
+> **Ordre libre** — tâches indépendantes.
+
+- [x] **9.1 — `.gitattributes` : normaliser les fins de ligne**
+  - 🔧 Action : `* text=auto eol=lf` + règles par extension. Fin des warnings CRLF à chaque commit.
+  - ✅ Vérifier : `git commit` sans warnings.
+
+- [x] **9.2 — `CONTRIBUTING.md` : guide de contribution**
+  - 🔧 Action : invariant anti-hallucination, protocole d'ajout de provider (4 étapes), conventions code, format commit, limite PR 400 LOC, glossaire domaine.
+  - ✅ Vérifier : `cat CONTRIBUTING.md` → complet.
+
+- [x] **9.3 — `CHANGELOG.md` : traçabilité des releases**
+  - 🔧 Action : reconstruit depuis les phases (dev → alpha → beta → unreleased).
+  - ✅ Vérifier : `cat CHANGELOG.md` → cohérent avec `git log`.
+
+- [x] **9.4 — `hirelens.example.toml` : config annotée**
+  - 🔧 Action : enrichi avec env vars par section, note Gemini GUI-only, avertissement OPENAI_API_KEY.
+  - ✅ Vérifier : `toml::from_str(content)` → parse sans erreur (couvert par le parser de Config).
+
+- [x] **9.5 — `docs/adr/0006-word-boundary-and-provider-cache-key.md`**
+  - 🔧 Action : documente les deux décisions Phase 8 (regex `\b`, clé cache + provider).
+  - ✅ Vérifier : fichier lisible, alternatives documentées.
 
 ---
