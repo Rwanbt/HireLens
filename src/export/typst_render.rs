@@ -118,11 +118,32 @@ pub fn markdown_to_typst(markdown: &str) -> String {
     out
 }
 
+/// Escape a single character that carries syntactic meaning in Typst markup.
+///
+/// Single source of truth shared by `escape_typst` and `inline_markup` so plain
+/// text, bold, and italic content are all escaped identically. Char-by-char
+/// (rather than chained `replace`) avoids double-escaping the backslash itself.
+fn push_escaped(ch: char, out: &mut String) {
+    match ch {
+        '\\' => out.push_str("\\\\"),
+        '#' => out.push_str("\\#"),
+        '@' => out.push_str("\\@"),
+        '<' => out.push_str("\\<"),
+        '>' => out.push_str("\\>"),
+        '"' => out.push_str("\\\""),
+        '_' => out.push_str("\\_"),
+        '[' => out.push_str("\\["),
+        ']' => out.push_str("\\]"),
+        c => out.push(c),
+    }
+}
+
 fn escape_typst(s: &str) -> String {
-    s.replace('#', "\\#")
-        .replace('@', "\\@")
-        .replace('<', "\\<")
-        .replace('>', "\\>")
+    let mut out = String::with_capacity(s.len());
+    for ch in s.chars() {
+        push_escaped(ch, &mut out);
+    }
+    out
 }
 
 fn inline_markup(s: &str) -> String {
@@ -154,14 +175,9 @@ fn inline_markup(s: &str) -> String {
             result.push('_');
             i += 1; // skip closing *
         } else {
+            // char-aware: never split a multi-byte codepoint (e.g. "é").
             let ch = s[i..].chars().next().unwrap_or('\0');
-            match ch {
-                '#' => result.push_str("\\#"),
-                '@' => result.push_str("\\@"),
-                '<' => result.push_str("\\<"),
-                '>' => result.push_str("\\>"),
-                c => result.push(c),
-            }
+            push_escaped(ch, &mut result);
             i += ch.len_utf8();
         }
     }
@@ -249,5 +265,22 @@ mod tests {
     fn hash_escaped_in_plain_text() {
         let result = escape_typst("C# Developer");
         assert!(result.contains("\\#"));
+    }
+
+    #[test]
+    fn bold_with_accents_does_not_panic() {
+        // "é" / "à" are 2 bytes each — byte-index slicing must not split them.
+        let result = inline_markup("**Développeur** confirmé à Paris");
+        assert!(result.contains("*Développeur*"));
+        assert!(result.contains("confirmé à Paris"));
+    }
+
+    #[test]
+    fn special_chars_escaped() {
+        let result = escape_typst("first_name [remote] path\\to <tag>");
+        assert!(result.contains("first\\_name"));
+        assert!(result.contains("\\[remote\\]"));
+        assert!(result.contains("path\\\\to"));
+        assert!(result.contains("\\<tag\\>"));
     }
 }

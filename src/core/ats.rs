@@ -108,4 +108,39 @@ mod tests {
         assert_eq!(report.matched_skills, vec!["docker", "rust"]);
         assert_eq!(report.missing_skills, vec!["kubernetes"]);
     }
+
+    #[test]
+    fn explanations_classify_present_missing_weak() {
+        let cv = Cv {
+            skills: vec!["Rust".into()],
+            ..Cv::default()
+        };
+        let job = JobDescription {
+            title: None,
+            // docker appears twice (Missing), kubernetes once (Weak)
+            raw_text: "rust docker docker kubernetes".into(),
+            skills: vec!["rust".into(), "docker".into(), "kubernetes".into()],
+        };
+
+        let report = compute_audit(&cv, &job);
+        let by_skill = |name: &str| {
+            report
+                .explanations
+                .iter()
+                .find(|reason| reason.skill == name)
+                .unwrap_or_else(|| panic!("expected explanation for {name}"))
+                .clone()
+        };
+
+        // in the CV → Present, regardless of occurrence count in the job
+        assert_eq!(by_skill("rust").status, SkillStatus::Present);
+
+        let docker = by_skill("docker");
+        assert_eq!(docker.status, SkillStatus::Missing);
+        assert_eq!(docker.occurrences, 2);
+
+        let kubernetes = by_skill("kubernetes");
+        assert_eq!(kubernetes.status, SkillStatus::Weak);
+        assert_eq!(kubernetes.occurrences, 1);
+    }
 }

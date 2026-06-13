@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+
+use super::{KEYRING_GEMINI_ACCOUNT, KEYRING_SERVICE};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StoredToken {
@@ -28,33 +29,26 @@ impl StoredToken {
     }
 }
 
+// S1+S2 — OAuth2 tokens live in the OS keyring (Credential Manager / Keychain /
+// Secret Service), never as a plaintext JSON file on disk. This also removes the
+// TOCTOU file-permission concern (S3) entirely. Same backend as the OpenAI key.
+fn entry() -> Option<keyring::Entry> {
+    keyring::Entry::new(KEYRING_SERVICE, KEYRING_GEMINI_ACCOUNT).ok()
+}
+
 pub fn load_token() -> Option<StoredToken> {
-    let path = token_path();
-    std::fs::read_to_string(path)
-        .ok()
-        .and_then(|s| serde_json::from_str(&s).ok())
+    let json = entry()?.get_password().ok()?;
+    serde_json::from_str(&json).ok()
 }
 
 pub fn save_token(token: &StoredToken) {
-    let path = token_path();
-    if let Ok(json) = serde_json::to_string_pretty(token) {
-        let _ = std::fs::write(&path, json.as_bytes());
-        // Restrict permissions on Unix; Windows relies on folder/user ACL.
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
-        }
+    if let (Some(entry), Ok(json)) = (entry(), serde_json::to_string(token)) {
+        let _ = entry.set_password(&json);
     }
 }
 
 pub fn clear_token() {
-    let _ = std::fs::remove_file(token_path());
-}
-
-fn token_path() -> PathBuf {
-    std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|d| d.join("hirelens-auth.json")))
-        .unwrap_or_else(|| PathBuf::from("hirelens-auth.json"))
+    if let Some(entry) = entry() {
+        let _ = entry.delete_credential();
+    }
 }

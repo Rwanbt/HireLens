@@ -141,3 +141,107 @@ impl LlmProvider for FallbackProvider {
         Err(last_err)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    enum Behavior {
+        Ok,
+        ConnError,
+        AuthError,
+    }
+
+    struct MockProvider {
+        behavior: Behavior,
+        calls: Arc<AtomicUsize>,
+    }
+
+    impl MockProvider {
+        fn spawn(behavior: Behavior) -> (Arc<dyn LlmProvider>, Arc<AtomicUsize>) {
+            let calls = Arc::new(AtomicUsize::new(0));
+            let provider = Arc::new(MockProvider { behavior, calls: calls.clone() });
+            (provider, calls)
+        }
+
+        fn outcome<T>(&self, ok: T) -> Result<T> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            match self.behavior {
+                Behavior::Ok => Ok(ok),
+                // a connection error must trigger fallback to the next provider
+                Behavior::ConnError => Err(anyhow::anyhow!("Connection refused (os error 10061)")),
+                // an auth error must propagate immediately, never be masked
+                Behavior::AuthError => Err(anyhow::anyhow!("401 Unauthorized")),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl LlmProvider for MockProvider {
+        async fn extract_skills(
+            &self,
+            _request: ExtractSkillsRequest,
+        ) -> Result<ExtractSkillsResponse> {
+            self.outcome(ExtractSkillsResponse { skills: vec!["rust".into()] })
+        }
+
+        async fn generate_adaptation(
+            &self,
+            _request: AdaptationRequest,
+        ) -> Result<AdaptationResponse> {
+            self.outcome(AdaptationResponse {
+                prioritized_skills: Vec::new(),
+                selected_bullets: Vec::new(),
+            })
+        }
+    }
+
+    fn request() -> ExtractSkillsRequest {
+        ExtractSkillsRequest { source_name: "CV".into(), text: "rust".into() }
+    }
+
+    #[tokio::test]
+    async fn fallback_triggers_on_connection_error() {
+        let (first, first_calls) = MockProvider::spawn(Behavior::ConnError);
+        let (second, second_calls) = MockProvider::spawn(Behavior::Ok);
+        let fallback = FallbackProvider { providers: vec![first, second] };
+
+        let result = fallback.extract_skills(request()).await;
+
+        assert!(result.is_ok());
+        assert_eq!(first_calls.load(Ordering::SeqCst), 1, "first provider tried");
+        assert_eq!(second_calls.load(Ordering::SeqCst), 1, "fell back to second");
+    }
+
+    #[tokio::test]
+    async fn fallback_skipped_on_auth_error() {
+        let (first, first_calls) = MockProvider::spawn(Behavior::AuthError);
+        let (second, second_calls) = MockProvider::spawn(Behavior::Ok);
+        let fallback = FallbackProvider { providers: vec![first, second] };
+
+        let result = fallback.extract_skills(request()).await;
+
+        assert!(result.is_err(), "401 must not be hidden by fallback");
+        assert_eq!(first_calls.load(Ordering::SeqCst), 1);
+        assert_eq!(
+            second_calls.load(Ordering::SeqCst),
+            0,
+            "second provider must NOT be tried on auth error"
+        );
+    }
+
+    #[tokio::test]
+    async fn fallback_exhausted_returns_connection_error() {
+        let (first, _) = MockProvider::spawn(Behavior::ConnError);
+        let (second, _) = MockProvider::spawn(Behavior::ConnError);
+        let fallback = FallbackProvider { providers: vec![first, second] };
+
+        let error = fallback
+            .extract_skills(request())
+            .await
+            .expect_err("both providers down → error");
+
+        assert!(FallbackProvider::is_connection_error(&error));
+    }
+}

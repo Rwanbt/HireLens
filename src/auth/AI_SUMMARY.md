@@ -1,6 +1,6 @@
 # AI_SUMMARY — auth
 
-> **Auto-generated 2026-06-13 04:38** — do not edit manually.
+> **Auto-generated 2026-06-13 13:58** — do not edit manually.
 > Source: `tools/ai_docs/generate_ai_summary.py`
 > For purpose, thread model and constraints, read `AI_CONTEXT.md`.
 
@@ -21,11 +21,11 @@ Google OAuth2 PKCE flow for Gemini authentication: generates PKCE challenge, ope
 | File | LOC | |
 |------|-----|--|
 | `google.rs` | 166 | |
-| `mod.rs` | 8 | |
-| `oauth_server.rs` | 80 | |
+| `mod.rs` | 9 | |
+| `oauth_server.rs` | 90 | |
 | `pkce.rs` | 15 | |
-| `token_store.rs` | 48 | |
-| **Total** | **317** | |
+| `token_store.rs` | 40 | |
+| **Total** | **320** | |
 
 ## Rust API
 - `CallbackServer` (struct)

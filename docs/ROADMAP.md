@@ -250,5 +250,227 @@ Why:
 
 ## 📌 Prochaine action
 
-➡️ **Tâche 1.1.1** — créer `src/core/matching.rs` avec `count_skill_occurrences()`.
-Suivre la boucle d'or : lire `src/core/mod.rs` d'abord → écrire → `cargo build` → cocher → commit.
+➡️ **Phases 4 et 5 terminées** (2026-06-13) — bugs critiques + sécurité corrigés, 38 tests verts, clippy `-D warnings` propre.
+Prochaine cible : **Phase 6 — GUI egui polish & UX** (tâches 6.1 → 6.8, ordre libre).
+
+---
+
+## 🔥 Phase 4 — Bugs critiques + sécurité (Sprint 1 — bloquants)
+
+> Issus de la **code review complète du 2026-06-13** (voir `docs/review-2026-06-13.md`).
+> **Ordre obligatoire : C1 → C2 → B1 → B2 → S1 → S4.**
+
+### 4.1 — Anti-hallucination : failles d'intégrité
+
+- [x] **C1 — `pipeline.rs` : snapshot `allowed_skills` avant `enrich_skills()`**
+  - 📁 Fichier : `src/core/pipeline.rs`
+  - 🔧 Action : capturer `allowed_skills` depuis `cv.skills` AVANT d'appeler `enrich_skills()`. Actuellement le LLM peut enrichir la whitelist et contourner `validate_adaptation()`.
+  - ⚠️ C'est la faille la plus grave du projet — elle compromet l'invariant fondamental anti-hallucination.
+  - ✅ Vérifier : `cargo test` — en particulier les tests `validate_adaptation`.
+
+- [x] **C2 — `validation.rs:32` : rejeter skill vide/whitespace**
+  - 📁 Fichier : `src/core/validation.rs`
+  - 🔧 Action : ajouter en début de boucle :
+    ```rust
+    if skill.is_empty() {
+        bail!("LLM returned an empty or whitespace-only skill");
+    }
+    ```
+  - ✅ Vérifier : `cargo test`.
+
+### 4.2 — Crash reproductible : export PDF sur CVs français
+
+- [x] **B1 — `typst_render.rs:128` : panic UTF-8 dans `inline_markup`** *(déjà UTF-8-safe — scan d'octets sur `*` (0x2A) qui ne coïncide jamais avec un octet de continuation UTF-8 ; test de régression ajouté)*
+  - 📁 Fichier : `src/export/typst_render.rs`, fonction `inline_markup`
+  - 🔧 Action : réécrire en utilisant `char_indices()` au lieu d'indices byte. `"**Développeur**"` contient `é` (2 bytes) → panic garanti avec le code actuel.
+  - ✅ Vérifier : `cargo test` + test manuel avec un CV contenant du `**gras**` et de l'`_italique_`.
+
+- [x] **B2 — `typst_render.rs:121` : `escape_typst` incomplète** *(refacto DRY : source unique `push_escaped` partagée, ajoute `\ " _ [ ]`)*
+  - 📁 Fichier : `src/export/typst_render.rs`, fonction `escape_typst`
+  - 🔧 Action : ajouter `\`, `"`, `_`, `[`, `]` à la liste des caractères échappés.
+  - ✅ Vérifier : `cargo test`.
+
+### 4.3 — Sécurité OAuth2
+
+- [x] **S1+S2 — `token_store.rs` : tokens OAuth2 Gemini en JSON clair sur disque** *(migré vers keyring OS, comme la clé OpenAI ; aligne le code sur ARCHITECTURE.md)*
+  - 📁 Fichier : `src/auth/token_store.rs`
+  - 🔧 Action : migrer vers `keyring` (déjà utilisé pour OpenAI dans `src/gui/settings.rs`). Remplacer `std::fs::write(path, json)` par `keyring::Entry::new("hirelens", "gemini-oauth-tokens")?.set_password(&json)?`.
+  - ✅ Vérifier : `cargo build` + test manuel "Connexion Google" → déconnexion → reconnexion.
+
+- [x] **S4 — `oauth_server.rs:83` : `percent_decode` absent** *(déjà implémenté — `percent_decode()` maison présent et utilisé dans `parse_query()`. Crate `percent-encoding` non ajoutée car redondante.)*
+
+---
+
+## 🧪 Phase 5 — Tests manquants + sécurité secondaire (Sprint 2)
+
+### 5.1 — Tests des chemins critiques
+
+- [x] **T1 — Tests `FallbackProvider`**
+  - 📁 Fichier : `src/llm/router.rs` (module `#[cfg(test)]`)
+  - 🔧 Action : tester (a) fallback déclenché sur `is_connection_error`, (b) fallback *non* déclenché sur `401 Unauthorized`, (c) épuisement des deux providers → erreur claire.
+  - ✅ Vérifier : `cargo test fallback`.
+
+- [x] **T2 — Tests `validate_adaptation` cas limites**
+  - 📁 Fichier : `src/core/validation.rs`
+  - 🔧 Action : tester skill vide `""`, `experience_id` inexistant, paraphrase d'un bullet (doit rejeter).
+  - ✅ Vérifier : `cargo test validate`.
+
+- [x] **T3 — Tests `compute_audit` avec `explanations`**
+  - 📁 Fichier : `src/core/ats.rs`
+  - 🔧 Action : vérifier que `Missing` / `Weak` / `Present` sont générés correctement selon les cas.
+  - ✅ Vérifier : `cargo test compute_audit`.
+
+- [x] **T4 — Tests `format_audit_report` avec section `Why:`**
+  - 📁 Fichier : `src/cli/mod.rs`
+  - 🔧 Action : tester que la section `Why:` apparaît avec les bons labels (missing/weak/present).
+  - ✅ Vérifier : `cargo test format_audit`.
+
+### 5.2 — Sécurité secondaire
+
+- [x] **S3 — `token_store.rs:43` : TOCTOU permissions fichier** *(obsolète : la migration keyring S1+S2 supprime tout fichier sur disque)*
+  - 📁 Fichier : `src/auth/token_store.rs`
+  - 🔧 Action : (Unix uniquement) utiliser `OpenOptions::create_new().mode(0o600)` avant l'écriture. Note : si S1+S2 est fait (migration keyring), cette tâche devient obsolète — la cocher dans les deux cas.
+  - ✅ Vérifier : `cargo build`.
+
+- [x] **S5 — `oauth_server.rs:28` : valider le path `/callback`** *(boucle robuste : 404 aux requêtes parasites, attend le vrai callback)*
+  - 📁 Fichier : `src/auth/oauth_server.rs`
+  - 🔧 Action : rejeter les requêtes dont le path ne commence pas par `/callback` avec un `404`.
+  - ✅ Vérifier : `cargo build`.
+
+- [x] **M1 — `web/mod.rs:24` : bind `127.0.0.1` par défaut**
+  - 📁 Fichier : `src/web/mod.rs`
+  - 🔧 Action : remplacer `0.0.0.0` par `127.0.0.1`. Ajouter `--host` flag optionnel si besoin.
+  - ✅ Vérifier : `cargo run -- serve` → vérifier que `http://127.0.0.1:8080` fonctionne.
+
+- [x] **M2 — `web/mod.rs:122` : masquer les erreurs internes dans l'API**
+  - 📁 Fichier : `src/web/mod.rs`, fonction `friendly_error`
+  - 🔧 Action : logger `tracing::error!("{:?}", e)`, retourner un message générique côté client.
+  - ✅ Vérifier : `cargo build`.
+
+---
+
+## 🖥️ Phase 6 — GUI egui : polish & UX (Sprint 3)
+
+> Lire les fichiers avant d'éditer. **Ordre libre** — tâches indépendantes.
+
+- [ ] **6.1 — Avertissement "Remplissez les deux champs" : afficher uniquement après tentative**
+  - 📁 Fichier : `src/gui/views/main_view.rs`, `render_controls()`
+  - 🔧 Action : ajouter un booléen `app.tried_without_input: bool` mis à `true` au clic. N'afficher le warning que si `tried_without_input && !has_input`.
+  - ✅ Vérifier : `cargo run -- gui` → au démarrage, aucun warning. Clic sur "Analyser" avec champs vides → warning apparaît.
+
+- [ ] **6.2 — "Pourquoi ce score ?" : ouvrir automatiquement à la première analyse**
+  - 📁 Fichier : `src/gui/views/main_view.rs`, `render_audit_panel()`
+  - 🔧 Action : passer `default_open(true)` sur le `CollapsingHeader` "Pourquoi ce score ?" quand `!report.explanations.is_empty()`.
+  - ✅ Vérifier : `cargo run -- gui` → analyser → le bloc s'ouvre seul.
+
+- [ ] **6.3 — Provider "Gemini" : désactiver si non configuré**
+  - 📁 Fichier : `src/gui/views/main_view.rs`, `render_controls()`
+  - 🔧 Action : griser l'option Gemini dans le ComboBox si `app.settings.gemini.client_id.is_empty()`. Ajouter `.on_disabled_hover_text("Configurez Gemini dans ⚙️ Paramètres")`.
+  - ✅ Vérifier : `cargo run -- gui`.
+
+- [ ] **6.4 — Bouton "Réinitialiser" pour repartir d'une analyse propre**
+  - 📁 Fichier : `src/gui/views/main_view.rs`, `render_controls()`
+  - 🔧 Action : ajouter un bouton "🔄 Réinitialiser" qui efface `cv_text`, `job_text`, `audit_state → Idle`, `adapt_state → Idle`.
+  - ✅ Vérifier : `cargo run -- gui`.
+
+- [ ] **6.5 — CV optimisé : améliorer la lisibilité du panneau de résultat**
+  - 📁 Fichier : `src/gui/views/main_view.rs`, `render_adapted_panel()`
+  - 🔧 Action : augmenter `max_height` de `400.0` à `f32::INFINITY` (ou la hauteur disponible). Ajouter un titre de section avec le score ATS du CV adapté en évidence.
+  - ✅ Vérifier : `cargo run -- gui` → optimiser un CV → vérifier que le résultat est lisible sans scroller.
+
+- [ ] **6.6 — Toolbar export : grouper visuellement les boutons**
+  - 📁 Fichier : `src/gui/views/main_view.rs`, `render_adapted_panel()`
+  - 🔧 Action : séparer "exporter en fichier" (💾 .md / 🌐 HTML / 📄 PDF) et "copier" (📋) avec un `ui.separator()` ou un espacement clair.
+  - ✅ Vérifier : `cargo run -- gui`.
+
+- [ ] **6.7 — Settings : ouvrir seulement la section du provider actif par défaut**
+  - 📁 Fichier : `src/gui/views/settings_view.rs`
+  - 🔧 Action : passer `default_open(app.provider == Provider::OpenAi)` sur la section OpenAI, idem pour les autres sections.
+  - ✅ Vérifier : `cargo run -- gui` → ouvrir Settings avec Ollama sélectionné → seule la section Ollama est ouverte.
+
+- [ ] **6.8 — Feedback "Export réussi" stable**
+  - 📁 Fichier : `src/gui/views/main_view.rs` + `src/gui/state.rs`
+  - 🔧 Action : le `save_status` actuel s'efface trop vite. Stocker un `export_success: Option<(String, Instant)>` et afficher pendant 4 secondes.
+  - ✅ Vérifier : `cargo run -- gui` → exporter en PDF → "✅ Exporté vers cv.pdf" visible 4s.
+
+---
+
+## 🌐 Phase 7 — UI Web : refonte & UX (Sprint 4)
+
+> Lire `src/web/ui.html` avant d'éditer. **Ordre libre** — tâches indépendantes.
+
+- [ ] **7.1 — Remplacer `alert()` par des messages d'erreur inline**
+  - 📁 Fichier : `src/web/ui.html`
+  - 🔧 Action : ajouter `<div id="error-bar" class="hidden"></div>` stylisé en rouge. Remplacer chaque `alert(...)` par `showError(message)`.
+  - ✅ Vérifier : `cargo run -- serve --open` → simuler une erreur (champs vides) → message inline, pas d'alert.
+
+- [ ] **7.2 — Reformater et nommer les classes CSS de façon lisible**
+  - 📁 Fichier : `src/web/ui.html`
+  - 🔧 Action : reformater le CSS (une propriété par ligne), renommer `.cg→.chip-green`, `.cr→.chip-red`, `.b-blue→.badge-blue`, `.b-green→.badge-green`, `.btn-a→.btn-primary`, `.btn-o→.btn-success`, `.btn-c→.btn-secondary`.
+  - ✅ Vérifier : `cargo build` + rendu visuel identique.
+
+- [ ] **7.3 — Persister CV et offre avec `localStorage`**
+  - 📁 Fichier : `src/web/ui.html`
+  - 🔧 Action : au `input` sur chaque textarea, `localStorage.setItem('hirelens_cv', value)`. Au chargement, restaurer depuis `localStorage.getItem`.
+  - ✅ Vérifier : saisir un CV → rafraîchir → CV toujours présent.
+
+- [ ] **7.4 — Ajouter le téléchargement du CV optimisé en `.md`**
+  - 📁 Fichier : `src/web/ui.html`
+  - 🔧 Action : ajouter un bouton "⬇️ Télécharger .md" à côté de "📋 Copier" via `Blob` + `URL.createObjectURL`.
+  - ✅ Vérifier : optimiser → cliquer → téléchargement de `cv-optimized.md`.
+
+- [ ] **7.5 — Empty state : afficher un placeholder avant la première analyse**
+  - 📁 Fichier : `src/web/ui.html`
+  - 🔧 Action : afficher `<div id="empty-state">← Collez un CV et une offre pour démarrer</div>` tant qu'aucune analyse n'a été lancée.
+  - ✅ Vérifier : chargement initial → placeholder visible. Après analyse → disparaît.
+
+- [ ] **7.6 — Provider select : indiquer Gemini comme GUI-only**
+  - 📁 Fichier : `src/web/ui.html`
+  - 🔧 Action : ajouter `<option disabled>🌟 Gemini (GUI uniquement)</option>` pour clarifier l'absence.
+  - ✅ Vérifier : le select affiche l'option grisée.
+
+- [ ] **7.7 — Textareas : passer à `min-height` responsive**
+  - 📁 Fichier : `src/web/ui.html`
+  - 🔧 Action : remplacer `height:240px` fixe par `min-height:160px; max-height:50vh`.
+  - ✅ Vérifier : redimensionner la fenêtre < 400px → les textareas restent utilisables.
+
+- [ ] **7.8 — Structurer le JS en sections commentées**
+  - 📁 Fichier : `src/web/ui.html`
+  - 🔧 Action : découper le bloc `<script>` en sections `// === Utilitaires ===`, `// === Rendu ===`, `// === API ===`, `// === Événements ===`.
+  - ✅ Vérifier : `cargo build` + comportement identique.
+
+---
+
+## 🔧 Phase 8 — Robustesse + documentation (Sprint 5)
+
+> **Ordre libre** — tâches indépendantes.
+
+- [ ] **8.1 — `matching.rs:35` : word-boundary matching**
+  - 📁 Fichier : `src/core/matching.rs`
+  - 🔧 Action : remplacer `haystack.matches(skill.as_str()).count()` par une regex word-boundary `\bskill\b`. Ajouter `regex = "1"` dans `Cargo.toml`.
+  - ⚠️ Ce changement modifie les scores — vérifier que les tests de scoring restent cohérents.
+  - ✅ Vérifier : `cargo test`.
+
+- [ ] **8.2 — `router.rs:106` : utiliser `reqwest::Error::is_connect()`**
+  - 📁 Fichier : `src/llm/router.rs`, fonction `is_connection_error`
+  - 🔧 Action : remplacer le string matching sur `e.to_string()` par `e.is_connect()`.
+  - ✅ Vérifier : `cargo build`.
+
+- [ ] **8.3 — `oauth_server.rs` : vérifier le paramètre `state` PKCE**
+  - 📁 Fichier : `src/auth/oauth_server.rs`
+  - 🔧 Action : stocker le `state` généré avant le redirect, vérifier qu'il correspond au `state` reçu dans le callback. Sans ça, le flow est vulnérable CSRF OAuth2.
+  - ✅ Vérifier : `cargo build`.
+
+- [ ] **8.4 — `router.rs` : URLs FallbackProvider lues depuis `Config`**
+  - 📁 Fichier : `src/llm/router.rs` + `src/utils/config.rs`
+  - 🔧 Action : lire `config.ollama_url` et `config.lmstudio_url` dans `new_local_with_fallback()` au lieu des URLs hardcodées.
+  - ✅ Vérifier : `cargo test`.
+
+- [ ] **8.5 — `cache.rs` : inclure le provider dans la clé de cache**
+  - 📁 Fichier : `src/utils/cache.rs`
+  - 🔧 Action : concatener le nom du provider LLM dans le hash SHA-256. Évite de réutiliser un résultat d'Ollama quand on passe sur OpenAI.
+  - ✅ Vérifier : `cargo test`.
+
+- [ ] **3.6** — 🔽 *dé-priorisé* — `docs/GOOGLE_OAUTH_SETUP.md` : guide pas-à-pas pour configurer un Client ID Google Cloud.
+
+---

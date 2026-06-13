@@ -1,6 +1,6 @@
 # AI_SUMMARY — export
 
-> **Auto-generated 2026-06-13 04:38** — do not edit manually.
+> **Auto-generated 2026-06-13 13:53** — do not edit manually.
 > Source: `tools/ai_docs/generate_ai_summary.py`
 > For purpose, thread model and constraints, read `AI_CONTEXT.md`.
 
@@ -13,13 +13,15 @@ Renders a validated `Cv` (or adapted CV) to Markdown, PDF (via Pandoc), or HTML.
 ## Files & LOC
 | File | LOC | |
 |------|-----|--|
-| `mod.rs` | 152 | |
-| `typst_render.rs` | 181 | |
-| **Total** | **333** | |
+| `mod.rs` | 155 | |
+| `typst_render.rs` | 209 | |
+| **Total** | **364** | |
 
 ## Rust API
 - `MarkdownExporter` (struct)
 - `PdfExporter` (struct)
+- `TypstRenderer` (struct)
+- `PdfRenderer` (trait)
 
 ## Rust Functions
 - `export_pdf()`

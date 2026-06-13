@@ -55,11 +55,21 @@ impl Pipeline {
     ) -> Result<AdaptedCv> {
         let mut cv = parse_cv_file(cv_path)?;
         let mut job = parse_job_file(job_path)?;
+
+        // C1 — Anti-hallucination ground truth: snapshot the skills declared in
+        // the original CV BEFORE enrichment. enrich_skills() merges LLM-extracted
+        // skills into cv.skills; without this snapshot the LLM could widen the
+        // whitelist that validate_adaptation() enforces and smuggle invented
+        // skills into the output. See ADR-0001.
+        let allowed_skills = cv.skills.clone();
+
         self.enrich_skills(&mut cv.skills, &mut job, cv_path, job_path, options)
             .await?;
-
         let audit = compute_audit(&cv, &job);
-        let allowed_skills = cv.skills.clone();
+
+        // Drop the enriched skills before adaptation/validation/render: only
+        // skills present in the original CV may reach the output.
+        cv.skills = allowed_skills.clone();
         let adaptation = self
             .adaptation(&cv, &job, allowed_skills, cv_path, job_path, options)
             .await?;
@@ -97,11 +107,18 @@ impl Pipeline {
     ) -> Result<AdaptedCv> {
         let mut cv = parse_cv_markdown(cv_text)?;
         let mut job = parse_job_text(job_text);
+
+        // C1 — Anti-hallucination ground truth: snapshot original CV skills
+        // BEFORE enrichment so the LLM cannot widen the validation whitelist.
+        // See ADR-0001 and the matching guard in `adapt()`.
+        let allowed_skills = cv.skills.clone();
+
         self.enrich_skills_text(&mut cv.skills, &mut job, cv_text, job_text, options)
             .await?;
-
         let audit = compute_audit(&cv, &job);
-        let allowed_skills = cv.skills.clone();
+
+        // Drop the enriched skills before adaptation/validation/render.
+        cv.skills = allowed_skills.clone();
         let adaptation = self
             .adaptation_text(&cv, &job, allowed_skills, cv_text, job_text, options)
             .await?;

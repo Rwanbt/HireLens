@@ -25,40 +25,56 @@ impl CallbackServer {
 
     /// Blocks until the OAuth2 callback arrives. Returns `(code, state)`.
     pub fn wait_for_callback(self) -> anyhow::Result<(String, String)> {
-        let (stream, _) = self.listener.accept()?;
-        let mut reader = BufReader::new(&stream);
-        let mut request_line = String::new();
-        reader.read_line(&mut request_line)?;
+        loop {
+            let (stream, _) = self.listener.accept()?;
+            let mut reader = BufReader::new(&stream);
+            let mut request_line = String::new();
+            reader.read_line(&mut request_line)?;
 
-        // "GET /callback?code=xxx&state=yyy HTTP/1.1"
-        let path = request_line
-            .split_whitespace()
-            .nth(1)
-            .unwrap_or("")
-            .to_owned();
+            // "GET /callback?code=xxx&state=yyy HTTP/1.1"
+            let path = request_line
+                .split_whitespace()
+                .nth(1)
+                .unwrap_or("")
+                .to_owned();
+            let route = path.split('?').next().unwrap_or("");
 
-        let query = path.split('?').nth(1).unwrap_or("");
-        let params = parse_query(query);
+            // S5 — only the OAuth2 redirect path is a valid callback. Serve a 404
+            // to anything else (favicon probes, port scanners) and keep waiting,
+            // rather than mistaking a stray request for the callback.
+            if route != "/callback" {
+                write_response(&stream, "404 Not Found", "Not Found");
+                continue;
+            }
 
-        let response = format!(
-            "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\n\r\n{}",
-            SUCCESS_PAGE.len(),
-            SUCCESS_PAGE
-        );
-        let mut writer = std::io::BufWriter::new(&stream);
-        let _ = writer.write_all(response.as_bytes());
-        drop(writer); // flush
+            let query = path.split('?').nth(1).unwrap_or("");
+            let params = parse_query(query);
 
-        let code = params.get("code").cloned().unwrap_or_default();
-        let state = params.get("state").cloned().unwrap_or_default();
+            write_response(&stream, "200 OK", SUCCESS_PAGE);
 
-        if code.is_empty() {
-            let error = params.get("error").cloned().unwrap_or_else(|| "unknown error".to_owned());
-            anyhow::bail!("OAuth2 callback error: {error}");
+            let code = params.get("code").cloned().unwrap_or_default();
+            let state = params.get("state").cloned().unwrap_or_default();
+
+            if code.is_empty() {
+                let error =
+                    params.get("error").cloned().unwrap_or_else(|| "unknown error".to_owned());
+                anyhow::bail!("OAuth2 callback error: {error}");
+            }
+
+            return Ok((code, state));
         }
-
-        Ok((code, state))
     }
+}
+
+fn write_response(stream: &std::net::TcpStream, status: &str, body: &str) {
+    let response = format!(
+        "HTTP/1.1 {status}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\n\r\n{}",
+        body.len(),
+        body
+    );
+    let mut writer = std::io::BufWriter::new(stream);
+    let _ = writer.write_all(response.as_bytes());
+    // BufWriter flushes on drop
 }
 
 fn parse_query(query: &str) -> HashMap<String, String> {

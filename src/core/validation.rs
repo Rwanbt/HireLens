@@ -32,7 +32,12 @@ pub fn validate_adaptation(cv: &Cv, adaptation: &AdaptationResponse) -> Result<(
 fn reject_unknown_skills(allowed: &HashSet<String>, skills: &[String]) -> Result<()> {
     for skill in skills {
         let normalized = normalize_skill(skill);
-        if !normalized.is_empty() && !allowed.contains(&normalized) {
+        // C2 — reject empty / whitespace-only skills outright. Previously these
+        // were skipped, letting a blank skill slip past the whitelist check.
+        if normalized.is_empty() {
+            bail!("LLM returned an empty or whitespace-only skill");
+        }
+        if !allowed.contains(&normalized) {
             bail!("LLM attempted to introduce unsupported skill: {}", skill);
         }
     }
@@ -101,6 +106,57 @@ mod tests {
 
         let error = validate_adaptation(&sample_cv(), &adaptation)
             .expect_err("invented bullet should be rejected");
+
+        assert!(error
+            .to_string()
+            .contains("bullet not present in the original CV"));
+    }
+
+    #[test]
+    fn rejects_empty_or_whitespace_skill() {
+        let adaptation = AdaptationResponse {
+            prioritized_skills: vec!["Rust".into(), "   ".into()],
+            selected_bullets: Vec::new(),
+        };
+
+        let error = validate_adaptation(&sample_cv(), &adaptation)
+            .expect_err("empty skill should be rejected");
+
+        assert!(error.to_string().contains("empty or whitespace-only"));
+    }
+
+    #[test]
+    fn rejects_bullet_with_unknown_experience_id() {
+        let adaptation = AdaptationResponse {
+            prioritized_skills: vec!["Rust".into()],
+            selected_bullets: vec![SelectedBullet {
+                // bullet text is verbatim, but no experience carries this id
+                experience_id: "exp-999".into(),
+                bullet: "Built Rust services with Tokio.".into(),
+            }],
+        };
+
+        let error = validate_adaptation(&sample_cv(), &adaptation)
+            .expect_err("bullet under unknown experience id should be rejected");
+
+        assert!(error
+            .to_string()
+            .contains("bullet not present in the original CV"));
+    }
+
+    #[test]
+    fn rejects_paraphrased_bullet() {
+        let adaptation = AdaptationResponse {
+            prioritized_skills: vec!["Rust".into()],
+            selected_bullets: vec![SelectedBullet {
+                experience_id: "exp-1".into(),
+                // close paraphrase of the original — must still be rejected
+                bullet: "Built Rust microservices using Tokio.".into(),
+            }],
+        };
+
+        let error = validate_adaptation(&sample_cv(), &adaptation)
+            .expect_err("paraphrased bullet should be rejected");
 
         assert!(error
             .to_string()

@@ -21,7 +21,9 @@ pub async fn serve(port: u16, open_browser: bool) -> anyhow::Result<()> {
         .route("/api/audit", post(audit))
         .route("/api/adapt", post(adapt));
 
-    let addr = format!("0.0.0.0:{port}");
+    // M1 — bind to loopback only: the local UI must not be reachable from the
+    // network. A CV and job description are sensitive personal data.
+    let addr = format!("127.0.0.1:{port}");
     let listener = tokio::net::TcpListener::bind(&addr).await?;
 
     println!("HireLens is running at http://localhost:{port}");
@@ -120,6 +122,12 @@ fn parse_provider(provider: &str) -> (LlmProviderKind, bool) {
 }
 
 fn friendly_error(err: &anyhow::Error) -> String {
+    // M2 — never leak internal error detail (cause chain, file paths, parser
+    // messages) to the HTTP client. Log the full chain server-side and return
+    // only a curated message. Known patterns map to actionable hints; anything
+    // else falls back to a generic message.
+    tracing::error!("{err:?}");
+
     let msg = err.to_string();
     if msg.contains("10061") || msg.contains("Connection refused") || msg.contains("tcp connect") {
         if msg.contains("11434") {
@@ -134,10 +142,11 @@ fn friendly_error(err: &anyhow::Error) -> String {
         return "Clé API OpenAI manquante ou invalide. Définissez la variable OPENAI_API_KEY."
             .to_owned();
     }
+    // User-facing validation messages are intentional (not internal leaks).
     if msg.contains("vide") || msg.contains("empty") {
         return msg;
     }
-    format!("Erreur : {msg}")
+    "Une erreur interne est survenue. Consultez les logs du serveur pour le détail.".to_owned()
 }
 
 // ===== Request / Response types =====

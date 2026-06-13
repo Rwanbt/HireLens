@@ -298,6 +298,26 @@ mod tests {
         assert!(output.contains("Score: 50/100"));
         assert!(output.contains("Matched skills: rust"));
         assert!(output.contains("Missing skills: kubernetes"));
+        // no explanations → no Why: section
+        assert!(!output.contains("Why:"));
+    }
+
+    #[test]
+    fn why_section_lists_skill_statuses() {
+        use crate::core::matching::{ScoreReason, SkillStatus};
+        let mut report = report();
+        report.explanations = vec![
+            ScoreReason { skill: "rust".into(), status: SkillStatus::Present, occurrences: 1 },
+            ScoreReason { skill: "docker".into(), status: SkillStatus::Missing, occurrences: 3 },
+            ScoreReason { skill: "ci/cd".into(), status: SkillStatus::Weak, occurrences: 1 },
+        ];
+
+        let output = format_audit_report(&report);
+
+        assert!(output.contains("Why:"));
+        assert!(output.contains("rust") && output.contains("present"));
+        assert!(output.contains("missing (3 occurrences in job)"));
+        assert!(output.contains("weak (1 occurrence)"));
     }
 
     #[test]
