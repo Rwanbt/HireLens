@@ -20,6 +20,51 @@ impl Default for Cache {
     }
 }
 
+impl Cache {
+    pub fn configured() -> Self {
+        let config = Config::load().unwrap_or_default();
+        Self {
+            root: config.cache_dir(),
+        }
+    }
+
+    #[cfg(test)]
+    pub fn with_root(root: PathBuf) -> Self {
+        Self { root }
+    }
+
+    pub fn key(&self, namespace: &str, paths: &[&Path], body: &str) -> Result<String> {
+        let mut hasher = Sha256::new();
+        hasher.update(namespace.as_bytes());
+        for path in paths {
+            hasher.update(path.to_string_lossy().as_bytes());
+            if let Ok(bytes) = std::fs::read(path) {
+                hasher.update(bytes);
+            }
+        }
+        hasher.update(body.as_bytes());
+        Ok(format!("{}-{:x}", namespace, hasher.finalize()))
+    }
+
+    pub async fn get_or_insert_json<T, F, Fut>(&self, key: &str, make: F) -> Result<T>
+    where
+        T: DeserializeOwned + Serialize,
+        F: FnOnce() -> Fut,
+        Fut: Future<Output = Result<T>>,
+    {
+        std::fs::create_dir_all(&self.root)?;
+        let path = self.root.join(format!("{key}.json"));
+        if path.exists() {
+            let text = std::fs::read_to_string(path)?;
+            return Ok(serde_json::from_str(&text)?);
+        }
+
+        let value = make().await?;
+        std::fs::write(path, serde_json::to_vec_pretty(&value)?)?;
+        Ok(value)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -71,50 +116,5 @@ mod tests {
         assert_eq!(calls.load(Ordering::SeqCst), 1);
 
         let _ = std::fs::remove_dir_all(root);
-    }
-}
-
-impl Cache {
-    pub fn configured() -> Self {
-        let config = Config::load().unwrap_or_default();
-        Self {
-            root: config.cache_dir(),
-        }
-    }
-
-    #[cfg(test)]
-    pub fn with_root(root: PathBuf) -> Self {
-        Self { root }
-    }
-
-    pub fn key(&self, namespace: &str, paths: &[&Path], body: &str) -> Result<String> {
-        let mut hasher = Sha256::new();
-        hasher.update(namespace.as_bytes());
-        for path in paths {
-            hasher.update(path.to_string_lossy().as_bytes());
-            if let Ok(bytes) = std::fs::read(path) {
-                hasher.update(bytes);
-            }
-        }
-        hasher.update(body.as_bytes());
-        Ok(format!("{}-{:x}", namespace, hasher.finalize()))
-    }
-
-    pub async fn get_or_insert_json<T, F, Fut>(&self, key: &str, make: F) -> Result<T>
-    where
-        T: DeserializeOwned + Serialize,
-        F: FnOnce() -> Fut,
-        Fut: Future<Output = Result<T>>,
-    {
-        std::fs::create_dir_all(&self.root)?;
-        let path = self.root.join(format!("{key}.json"));
-        if path.exists() {
-            let text = std::fs::read_to_string(path)?;
-            return Ok(serde_json::from_str(&text)?);
-        }
-
-        let value = make().await?;
-        std::fs::write(path, serde_json::to_vec_pretty(&value)?)?;
-        Ok(value)
     }
 }

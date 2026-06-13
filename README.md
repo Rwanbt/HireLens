@@ -166,6 +166,7 @@ hirelens gui
 | **OpenAI** | `--provider openai` | `https://api.openai.com/v1` | `OPENAI_API_KEY` env var |
 | **Ollama** | `--provider ollama` | `http://localhost:11434` | None |
 | **LM Studio** | `--provider lmstudio` | `http://localhost:1234/v1` | None |
+| **Gemini** | GUI only | `https://generativelanguage.googleapis.com` | OAuth2 PKCE (⚙️ Settings panel) |
 
 ```bash
 # OpenAI

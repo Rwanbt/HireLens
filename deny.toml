@@ -1,0 +1,39 @@
+[graph]
+# Build deps only — exclude dev and test deps from deny checks
+targets = []
+
+[licenses]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "ISC",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "CC0-1.0",
+    "Zlib",
+    "OpenSSL",
+]
+# Deny any unlicensed crate
+unlicensed = "deny"
+# Warn on copyleft (GPL, LGPL, AGPL) — should not appear in a MIT project
+copyleft = "deny"
+
+[bans]
+# Disallow multiple versions of the same crate (warn by default)
+multiple-versions = "warn"
+# Deny wildcard dependencies
+wildcards = "deny"
+# Deny yanked crates
+[bans.skip-tree]
+# eframe pulls in multiple wgpu sub-crates — acceptable
+name = "wgpu"
+
+[advisories]
+# Deny crates with known vulnerabilities (RustSec database)
+version = 2
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+ignore = []
