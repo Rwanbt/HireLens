@@ -1,7 +1,7 @@
 use eframe::egui::{self, Color32, RichText, ScrollArea, TextEdit, TextStyle, Ui, Vec2};
 
 use crate::core::AuditReport;
-use crate::gui::app::{HireLensApp, Provider};
+use crate::gui::app::{FileTarget, HireLensApp, Provider};
 use crate::gui::state::{AdaptState, AuditState};
 use crate::gui::widgets::chips::{badge, error_line, skill_chip};
 use crate::gui::widgets::gauge::render_gauge;
@@ -22,14 +22,28 @@ pub(crate) fn render_header(ctx: &egui::Context) {
         });
 }
 
-pub(crate) fn render_inputs(app: &mut HireLensApp, ui: &mut Ui) {
+pub(crate) fn render_inputs(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Context) {
     let avail = ui.available_width();
     let col_w = (avail - 14.0) / 2.0;
 
     ui.horizontal_top(|ui| {
+        // ── CV ──
         ui.vertical(|ui| {
             ui.set_width(col_w);
-            ui.label(RichText::new("📄  Votre CV").strong());
+            ui.horizontal(|ui| {
+                ui.label(RichText::new("📄  Votre CV").strong());
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui
+                        .add_enabled(
+                            app.file_rx.is_none(),
+                            egui::Button::new("📂 Ouvrir fichier").small(),
+                        )
+                        .clicked()
+                    {
+                        app.start_open_file(FileTarget::Cv, ctx);
+                    }
+                });
+            });
             ui.add_space(4.0);
             ui.add(
                 TextEdit::multiline(&mut app.cv_text)
@@ -66,9 +80,23 @@ pub(crate) fn render_inputs(app: &mut HireLensApp, ui: &mut Ui) {
 
         ui.add_space(14.0);
 
+        // ── Offre ──
         ui.vertical(|ui| {
             ui.set_width(col_w);
-            ui.label(RichText::new("💼  Offre d'emploi").strong());
+            ui.horizontal(|ui| {
+                ui.label(RichText::new("💼  Offre d'emploi").strong());
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui
+                        .add_enabled(
+                            app.file_rx.is_none(),
+                            egui::Button::new("📂 Ouvrir fichier").small(),
+                        )
+                        .clicked()
+                    {
+                        app.start_open_file(FileTarget::Job, ctx);
+                    }
+                });
+            });
             ui.add_space(4.0);
             ui.add(
                 TextEdit::multiline(&mut app.job_text)
@@ -147,7 +175,7 @@ pub(crate) fn render_controls(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Co
     });
 }
 
-pub(crate) fn render_results(app: &mut HireLensApp, ui: &mut Ui) {
+pub(crate) fn render_results(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Context) {
     let audit_report: Option<AuditReport> =
         if let AuditState::Done(r) = &app.audit_state { Some(r.clone()) } else { None };
     let audit_error: Option<String> =
@@ -187,7 +215,7 @@ pub(crate) fn render_results(app: &mut HireLensApp, ui: &mut Ui) {
         }
         ui.separator();
         ui.add_space(6.0);
-        render_adapted_panel(app, ui, &markdown);
+        render_adapted_panel(app, ui, ctx, &markdown);
     }
 }
 
@@ -241,7 +269,9 @@ fn render_audit_panel(ui: &mut Ui, report: &AuditReport) {
             .default_open(false)
             .show(ui, |ui| {
                 ui.label(
-                    RichText::new("CV — toutes les compétences détectées").size(11.0).color(COL_MUTED),
+                    RichText::new("CV — toutes les compétences détectées")
+                        .size(11.0)
+                        .color(COL_MUTED),
                 );
                 ui.horizontal_wrapped(|ui| {
                     for s in &report.cv_skills {
@@ -264,24 +294,50 @@ fn render_audit_panel(ui: &mut Ui, report: &AuditReport) {
     ui.add_space(8.0);
 }
 
-fn render_adapted_panel(app: &mut HireLensApp, ui: &mut Ui, markdown: &str) {
+fn render_adapted_panel(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Context, markdown: &str) {
+    // ── Title + export toolbar ──
     ui.horizontal(|ui| {
         ui.label(RichText::new("✨  CV Optimisé").size(16.0).strong());
         ui.add_space(12.0);
 
-        if ui.button(RichText::new("💾  Enregistrer .md").size(13.0)).clicked() {
-            match std::fs::write("cv-optimise.md", markdown) {
-                Ok(()) => {
-                    app.save_status = Some("✅ Enregistré : cv-optimise.md".to_owned());
-                }
-                Err(e) => {
-                    app.save_status = Some(format!("❌ Erreur : {e}"));
-                }
-            }
+        let saving = app.is_saving();
+
+        if ui
+            .add_enabled(!saving, egui::Button::new(RichText::new("💾  Enregistrer .md").size(13.0)))
+            .clicked()
+        {
+            app.start_save_md(markdown.to_owned(), ctx);
         }
 
-        if let Some(status) = &app.save_status {
+        ui.add_space(4.0);
+
+        if ui
+            .add_enabled(!saving, egui::Button::new(RichText::new("🌐  Exporter HTML").size(13.0)))
+            .clicked()
+        {
+            app.start_export_html(markdown.to_owned(), ctx);
+        }
+
+        ui.add_space(4.0);
+
+        // PDF export — Phase 2.5 (Typst library)
+        ui.add_enabled(false, egui::Button::new(RichText::new("📄  PDF").size(13.0)))
+            .on_disabled_hover_text("Export PDF via Typst — disponible en Phase 2.5");
+
+        ui.add_space(4.0);
+
+        if ui.button(RichText::new("📋  Copier").size(13.0)).clicked() {
+            ui.output_mut(|o| o.copied_text = markdown.to_owned());
+            app.save_status = Some("✅ Copié dans le presse-papiers".to_owned());
+        }
+
+        // Status message
+        if saving {
+            ui.add_space(8.0);
+            ui.spinner();
+        } else if let Some(status) = &app.save_status {
             let color = if status.starts_with('✅') { COL_GREEN } else { COL_RED };
+            ui.add_space(8.0);
             ui.label(RichText::new(status).size(12.0).color(color));
         }
     });

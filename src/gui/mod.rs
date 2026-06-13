@@ -1,4 +1,5 @@
 mod app;
+pub(crate) mod html_export;
 mod state;
 mod views;
 mod widgets;

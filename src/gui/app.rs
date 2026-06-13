@@ -34,6 +34,12 @@ impl Provider {
     }
 }
 
+/// Identifies which text field an async file-open targets.
+pub(crate) enum FileTarget {
+    Cv,
+    Job,
+}
+
 pub struct HireLensApp {
     pub(crate) cv_text: String,
     pub(crate) job_text: String,
@@ -46,6 +52,11 @@ pub struct HireLensApp {
     pub(crate) adapt_rx: Option<mpsc::Receiver<Result<(String, AuditReport), String>>>,
 
     pub(crate) save_status: Option<String>,
+
+    /// Async file-open: receives (target, file content or None if cancelled/error).
+    pub(crate) file_rx: Option<mpsc::Receiver<(FileTarget, Option<String>)>>,
+    /// Async save/export: receives the status message to display, or None if cancelled.
+    pub(crate) save_rx: Option<mpsc::Receiver<Option<String>>>,
 }
 
 impl Default for HireLensApp {
@@ -59,6 +70,8 @@ impl Default for HireLensApp {
             adapt_state: AdaptState::Idle,
             adapt_rx: None,
             save_status: None,
+            file_rx: None,
+            save_rx: None,
         }
     }
 }
@@ -66,6 +79,19 @@ impl Default for HireLensApp {
 impl HireLensApp {
     pub(crate) fn is_loading(&self) -> bool {
         self.audit_rx.is_some() || self.adapt_rx.is_some()
+    }
+
+    pub(crate) fn is_saving(&self) -> bool {
+        self.save_rx.is_some()
+    }
+
+    #[allow(dead_code)] // used in PR 2.5 (Typst PDF export)
+    pub(crate) fn adapted_markdown(&self) -> Option<&str> {
+        if let AdaptState::Done { markdown, .. } = &self.adapt_state {
+            Some(markdown.as_str())
+        } else {
+            None
+        }
     }
 
     pub(crate) fn poll_results(&mut self) {
@@ -87,6 +113,79 @@ impl HireLensApp {
                 self.adapt_rx = None;
             }
         }
+        if let Some(rx) = &self.file_rx {
+            if let Ok((target, content)) = rx.try_recv() {
+                if let Some(text) = content {
+                    match target {
+                        FileTarget::Cv => self.cv_text = text,
+                        FileTarget::Job => self.job_text = text,
+                    }
+                }
+                self.file_rx = None;
+            }
+        }
+        if let Some(rx) = &self.save_rx {
+            if let Ok(status) = rx.try_recv() {
+                self.save_status = status;
+                self.save_rx = None;
+            }
+        }
+    }
+
+    pub(crate) fn start_open_file(&mut self, target: FileTarget, ctx: &eframe::egui::Context) {
+        let ctx = ctx.clone();
+        let (tx, rx) = mpsc::channel();
+        self.file_rx = Some(rx);
+        std::thread::spawn(move || {
+            let content = rfd::FileDialog::new()
+                .add_filter("Documents", &["md", "txt"])
+                .pick_file()
+                .and_then(|p| std::fs::read_to_string(p).ok());
+            let _ = tx.send((target, content));
+            ctx.request_repaint();
+        });
+    }
+
+    pub(crate) fn start_save_md(&mut self, markdown: String, ctx: &eframe::egui::Context) {
+        let ctx = ctx.clone();
+        let (tx, rx) = mpsc::channel();
+        self.save_rx = Some(rx);
+        std::thread::spawn(move || {
+            let status = rfd::FileDialog::new()
+                .set_file_name("cv-optimise.md")
+                .add_filter("Markdown", &["md"])
+                .save_file()
+                .map(|path| match std::fs::write(&path, &markdown) {
+                    Ok(()) => Some(format!("✅ Enregistré : {}", path.display())),
+                    Err(e) => Some(format!("❌ Erreur : {e}")),
+                })
+                .unwrap_or(None);
+            let _ = tx.send(status);
+            ctx.request_repaint();
+        });
+    }
+
+    pub(crate) fn start_export_html(&mut self, markdown: String, ctx: &eframe::egui::Context) {
+        let ctx = ctx.clone();
+        let (tx, rx) = mpsc::channel();
+        self.save_rx = Some(rx);
+        std::thread::spawn(move || {
+            let html = crate::gui::html_export::to_html(&markdown);
+            let status = rfd::FileDialog::new()
+                .set_file_name("cv-optimise.html")
+                .add_filter("HTML", &["html"])
+                .save_file()
+                .map(|path| match std::fs::write(&path, &html) {
+                    Ok(()) => {
+                        let _ = open::that(&path);
+                        Some(format!("✅ HTML exporté : {}", path.display()))
+                    }
+                    Err(e) => Some(format!("❌ Erreur : {e}")),
+                })
+                .unwrap_or(None);
+            let _ = tx.send(status);
+            ctx.request_repaint();
+        });
     }
 
     pub(crate) fn start_audit(&mut self, ctx: &eframe::egui::Context) {
@@ -180,11 +279,11 @@ impl eframe::App for HireLensApp {
         eframe::egui::CentralPanel::default().show(ctx, |ui| {
             ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
                 ui.add_space(12.0);
-                main_view::render_inputs(self, ui);
+                main_view::render_inputs(self, ui, ctx);
                 ui.add_space(12.0);
                 main_view::render_controls(self, ui, ctx);
                 ui.add_space(8.0);
-                main_view::render_results(self, ui);
+                main_view::render_results(self, ui, ctx);
             });
         });
     }
