@@ -1,5 +1,6 @@
 use eframe::egui::{self, Color32, RichText, ScrollArea, TextEdit, TextStyle, Ui, Vec2};
 
+use crate::core::matching::SkillStatus;
 use crate::core::AuditReport;
 use crate::gui::app::{FileTarget, HireLensApp, Provider};
 use crate::gui::state::{AdaptState, AuditState};
@@ -301,6 +302,31 @@ fn render_audit_panel(ui: &mut Ui, report: &AuditReport) {
                     }
                 });
             });
+
+            if !report.explanations.is_empty() {
+                ui.add_space(10.0);
+                egui::CollapsingHeader::new(
+                    RichText::new("▸ Pourquoi ce score ?").size(12.0).color(COL_MUTED),
+                )
+                .default_open(false)
+                .show(ui, |ui| {
+                    for r in &report.explanations {
+                        let (label, color) = match r.status {
+                            SkillStatus::Present => ("✅ présent", COL_GREEN),
+                            SkillStatus::Missing => ("❌ manquant", COL_RED),
+                            SkillStatus::Weak => ("⚠ faible", COL_YELLOW),
+                        };
+                        ui.horizontal(|ui| {
+                            ui.label(RichText::new(&r.skill).size(12.0).color(color));
+                            ui.label(
+                                RichText::new(format!("— {} ({} occ.)", label, r.occurrences))
+                                    .size(11.0)
+                                    .color(COL_MUTED),
+                            );
+                        });
+                    }
+                });
+            }
         });
     });
 

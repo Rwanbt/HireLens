@@ -7,6 +7,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::core::matching::ScoreReason;
 use crate::core::{AuditReport, Pipeline, PipelineOptions};
 use crate::llm::{LlmProviderKind, LlmRouter};
 
@@ -179,6 +180,7 @@ struct AuditData {
     job_skills: Vec<String>,
     matched_skills: Vec<String>,
     missing_skills: Vec<String>,
+    explanations: Vec<ScoreReason>,
 }
 
 impl From<AuditReport> for AuditData {
@@ -190,6 +192,7 @@ impl From<AuditReport> for AuditData {
             job_skills: r.job_skills,
             matched_skills: r.matched_skills,
             missing_skills: r.missing_skills,
+            explanations: r.explanations,
         }
     }
 }

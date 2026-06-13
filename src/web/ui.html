@@ -97,6 +97,10 @@
       <div class="chips" id="missing"></div>
     </div>
   </div>
+  <details id="why-block" style="display:none;margin-top:12px">
+    <summary style="cursor:pointer;font-size:.82rem;color:#8b949e">▸ Pourquoi ce score ?</summary>
+    <table id="why-table" style="width:100%;border-collapse:collapse;margin-top:8px;font-size:.82rem"></table>
+  </details>
 </div>
 
 <div id="adapt-card" class="card hidden">
@@ -114,6 +118,11 @@ function none(txt){return`<span style="color:#8b949e;font-size:.8rem">${txt}</sp
 function chips(arr,cls){
   return arr.length?arr.map(s=>`<span class="chip ${cls}">${s}</span>`).join(''):none('aucune')
 }
+function statusLabel(s){
+  if(s==='Present')return{txt:'✅ présent',col:'#3fb950'};
+  if(s==='Missing')return{txt:'❌ manquant',col:'#f85149'};
+  return{txt:'⚠ faible',col:'#e3b341'};
+}
 function renderAudit(d){
   const c=document.getElementById('circle');
   c.textContent=d.score;c.style.borderColor=color(d.score);c.style.color=color(d.score);
@@ -121,6 +130,18 @@ function renderAudit(d){
     (d.skill_match_ratio*100).toFixed(0)+'% match';
   document.getElementById('matched').innerHTML=chips(d.matched_skills,'cg');
   document.getElementById('missing').innerHTML=chips(d.missing_skills,'cr');
+  const wb=document.getElementById('why-block');
+  const expl=d.explanations||[];
+  if(expl.length>0){
+    const rows=expl.map(r=>{
+      const{txt,col}=statusLabel(r.status);
+      return`<tr><td style="padding:2px 8px 2px 0;color:#c9d1d9">${r.skill}</td>`+
+        `<td style="color:${col}">${txt}</td>`+
+        `<td style="color:#8b949e;padding-left:8px">${r.occurrences} occ.</td></tr>`;
+    }).join('');
+    document.getElementById('why-table').innerHTML=rows;
+    wb.style.display='';
+  }else{wb.style.display='none'}
   document.getElementById('audit-card').classList.remove('hidden');
 }
 function setLoading(on){

@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use anyhow::{bail, Result};
 use clap::{Args as ClapArgs, Parser, Subcommand, ValueEnum};
 
+use crate::core::matching::SkillStatus;
 use crate::core::{AuditReport, Pipeline, PipelineOptions};
 use crate::export::{MarkdownExporter, PdfExporter};
 use crate::llm::{LlmProviderKind, LlmRouter};
@@ -217,14 +218,38 @@ fn enforce_min_score(score: u8, min_score: Option<u8>) -> Result<()> {
 }
 
 fn format_audit_report(report: &AuditReport) -> String {
+    let why_section = if report.explanations.is_empty() {
+        String::new()
+    } else {
+        let lines: Vec<String> = report
+            .explanations
+            .iter()
+            .map(|r| match r.status {
+                SkillStatus::Present => format!("  - {:<20} present", r.skill),
+                SkillStatus::Missing => format!(
+                    "  - {:<20} missing ({} occurrences in job)",
+                    r.skill, r.occurrences
+                ),
+                SkillStatus::Weak => format!(
+                    "  - {:<20} weak ({} occurrence{})",
+                    r.skill,
+                    r.occurrences,
+                    if r.occurrences == 1 { "" } else { "s" }
+                ),
+            })
+            .collect();
+        format!("\nWhy:\n{}", lines.join("\n"))
+    };
+
     format!(
-        "ATS audit\n\nScore: {}/100\nSkill match: {:.0}%\n\nMatched skills: {}\nMissing skills: {}\nCV skills: {}\nJob skills: {}",
+        "ATS audit\n\nScore: {}/100\nSkill match: {:.0}%\n\nMatched skills: {}\nMissing skills: {}\nCV skills: {}\nJob skills: {}{}",
         report.score.score,
         report.score.skill_match_ratio * 100.0,
         format_list(&report.matched_skills),
         format_list(&report.missing_skills),
         format_list(&report.cv_skills),
         format_list(&report.job_skills),
+        why_section,
     )
 }
 

@@ -152,17 +152,17 @@ Trois principes non négociables :
 
 ### 1.3 — Rendu de l'explication, 3 surfaces (dépend de 1.2)
 
-- [ ] **1.3.1 — CLI**
+- [x] **1.3.1 — CLI**
   - 📁 Fichier : `src/cli/mod.rs`, fonction `format_audit_report()`
   - 🔧 Action : ajouter une section `Why:` qui liste chaque `ScoreReason` (skill + statut + occurrences).
   - ✅ Vérifier : `cargo run -- audit examples/cv.md examples/job.txt --offline` → la section "Why:" apparaît.
 
-- [ ] **1.3.2 — GUI**
+- [x] **1.3.2 — GUI**
   - 📁 Fichier : `src/gui/views/main_view.rs`, fonction `render_audit_panel()`
   - 🔧 Action : ajouter un `egui::CollapsingHeader` "Pourquoi ce score ?" qui liste les `explanations`.
   - ✅ Vérifier : `cargo build` (le rendu visuel se teste à la main avec `cargo run -- gui`).
 
-- [ ] **1.3.3 — Web**
+- [x] **1.3.3 — Web**
   - 📁 Fichier : `src/web/ui.html` (bloc `renderAudit`) + `src/web/mod.rs` (struct `AuditData` doit exposer `explanations`)
   - 🔧 Action : afficher la liste des raisons sous le score dans l'UI web.
   - ✅ Vérifier : `cargo run -- serve --open` → ouvrir, analyser, voir le bloc.
