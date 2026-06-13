@@ -251,7 +251,7 @@ Why:
 ## 📌 Prochaine action
 
 ➡️ **Phases 4 et 5 terminées** (2026-06-13) — bugs critiques + sécurité corrigés, 38 tests verts, clippy `-D warnings` propre.
-Prochaine cible : **Phase 6 — GUI egui polish & UX** (tâches 6.1 → 6.8, ordre libre).
+Prochaine cible : **Phase 7 — UI Web : refonte & UX** (tâches 7.1 → 7.8, ordre libre).
 
 ---
 
@@ -353,44 +353,44 @@ Prochaine cible : **Phase 6 — GUI egui polish & UX** (tâches 6.1 → 6.8, ord
 
 > Lire les fichiers avant d'éditer. **Ordre libre** — tâches indépendantes.
 
-- [ ] **6.1 — Avertissement "Remplissez les deux champs" : afficher uniquement après tentative**
+- [x] **6.1 — Avertissement "Remplissez les deux champs" : afficher uniquement après tentative**
   - 📁 Fichier : `src/gui/views/main_view.rs`, `render_controls()`
   - 🔧 Action : ajouter un booléen `app.tried_without_input: bool` mis à `true` au clic. N'afficher le warning que si `tried_without_input && !has_input`.
   - ✅ Vérifier : `cargo run -- gui` → au démarrage, aucun warning. Clic sur "Analyser" avec champs vides → warning apparaît.
 
-- [ ] **6.2 — "Pourquoi ce score ?" : ouvrir automatiquement à la première analyse**
+- [x] **6.2 — "Pourquoi ce score ?" : ouvrir automatiquement à la première analyse**
   - 📁 Fichier : `src/gui/views/main_view.rs`, `render_audit_panel()`
   - 🔧 Action : passer `default_open(true)` sur le `CollapsingHeader` "Pourquoi ce score ?" quand `!report.explanations.is_empty()`.
   - ✅ Vérifier : `cargo run -- gui` → analyser → le bloc s'ouvre seul.
 
-- [ ] **6.3 — Provider "Gemini" : désactiver si non configuré**
+- [x] **6.3 — Provider "Gemini" : désactiver si non configuré**
   - 📁 Fichier : `src/gui/views/main_view.rs`, `render_controls()`
   - 🔧 Action : griser l'option Gemini dans le ComboBox si `app.settings.gemini.client_id.is_empty()`. Ajouter `.on_disabled_hover_text("Configurez Gemini dans ⚙️ Paramètres")`.
   - ✅ Vérifier : `cargo run -- gui`.
 
-- [ ] **6.4 — Bouton "Réinitialiser" pour repartir d'une analyse propre**
+- [x] **6.4 — Bouton "Réinitialiser" pour repartir d'une analyse propre**
   - 📁 Fichier : `src/gui/views/main_view.rs`, `render_controls()`
   - 🔧 Action : ajouter un bouton "🔄 Réinitialiser" qui efface `cv_text`, `job_text`, `audit_state → Idle`, `adapt_state → Idle`.
   - ✅ Vérifier : `cargo run -- gui`.
 
-- [ ] **6.5 — CV optimisé : améliorer la lisibilité du panneau de résultat**
+- [x] **6.5 — CV optimisé : améliorer la lisibilité du panneau de résultat**
   - 📁 Fichier : `src/gui/views/main_view.rs`, `render_adapted_panel()`
   - 🔧 Action : augmenter `max_height` de `400.0` à `f32::INFINITY` (ou la hauteur disponible). Ajouter un titre de section avec le score ATS du CV adapté en évidence.
   - ✅ Vérifier : `cargo run -- gui` → optimiser un CV → vérifier que le résultat est lisible sans scroller.
 
-- [ ] **6.6 — Toolbar export : grouper visuellement les boutons**
+- [x] **6.6 — Toolbar export : grouper visuellement les boutons**
   - 📁 Fichier : `src/gui/views/main_view.rs`, `render_adapted_panel()`
   - 🔧 Action : séparer "exporter en fichier" (💾 .md / 🌐 HTML / 📄 PDF) et "copier" (📋) avec un `ui.separator()` ou un espacement clair.
   - ✅ Vérifier : `cargo run -- gui`.
 
-- [ ] **6.7 — Settings : ouvrir seulement la section du provider actif par défaut**
+- [x] **6.7 — Settings : ouvrir seulement la section du provider actif par défaut**
   - 📁 Fichier : `src/gui/views/settings_view.rs`
   - 🔧 Action : passer `default_open(app.provider == Provider::OpenAi)` sur la section OpenAI, idem pour les autres sections.
   - ✅ Vérifier : `cargo run -- gui` → ouvrir Settings avec Ollama sélectionné → seule la section Ollama est ouverte.
 
-- [ ] **6.8 — Feedback "Export réussi" stable**
-  - 📁 Fichier : `src/gui/views/main_view.rs` + `src/gui/state.rs`
-  - 🔧 Action : le `save_status` actuel s'efface trop vite. Stocker un `export_success: Option<(String, Instant)>` et afficher pendant 4 secondes.
+- [x] **6.8 — Feedback "Export réussi" stable**
+  - 📁 Fichier : `src/gui/views/main_view.rs` + `src/gui/app.rs`
+  - 🔧 Action : stocker `export_feedback: Option<(String, Instant)>` dans `HireLensApp`. Auto-clear après 4s via timer dans `update()`. Utilisé pour copy + save_rx + pdf_rx.
   - ✅ Vérifier : `cargo run -- gui` → exporter en PDF → "✅ Exporté vers cv.pdf" visible 4s.
 
 ---

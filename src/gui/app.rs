@@ -87,6 +87,12 @@ pub struct HireLensApp {
     // ── Provider ping ──
     pub(crate) ping_rx: Option<mpsc::Receiver<(bool, bool)>>,
     pub(crate) ping_status: Option<(bool, bool)>,
+
+    // ── UX state ──
+    /// 6.1: true once user clicked Analyser/Optimiser without filling both fields
+    pub(crate) tried_without_input: bool,
+    /// 6.8: stable export feedback shown for 4 seconds
+    pub(crate) export_feedback: Option<(String, std::time::Instant)>,
 }
 
 impl Default for HireLensApp {
@@ -111,6 +117,8 @@ impl Default for HireLensApp {
             google_auth_rx: None,
             ping_rx: None,
             ping_status: None,
+            tried_without_input: false,
+            export_feedback: None,
         }
     }
 }
@@ -169,7 +177,12 @@ impl HireLensApp {
         }
         if let Some(rx) = &self.save_rx {
             if let Ok(status) = rx.try_recv() {
-                self.save_status = status;
+                if let Some(msg) = status {
+                    self.export_feedback = Some((msg.clone(), std::time::Instant::now()));
+                    self.save_status = Some(msg);
+                } else {
+                    self.save_status = None;
+                }
                 self.save_rx = None;
             }
         }
@@ -190,10 +203,12 @@ impl HireLensApp {
         }
         if let Some(rx) = &self.pdf_rx {
             if let Ok(result) = rx.try_recv() {
-                self.save_status = Some(match result {
+                let msg = match result {
                     Ok(_) => "✅ PDF enregistré.".to_owned(),
                     Err(e) => format!("❌ PDF : {e}"),
-                });
+                };
+                self.export_feedback = Some((msg.clone(), std::time::Instant::now()));
+                self.save_status = Some(msg);
                 self.pdf_rx = None;
             }
         }
@@ -226,6 +241,14 @@ impl eframe::App for HireLensApp {
         self.poll_results();
         if self.is_loading() {
             ctx.request_repaint_after(std::time::Duration::from_millis(80));
+        }
+        // 6.8: auto-clear export feedback after 4 seconds
+        if let Some((_, when)) = &self.export_feedback {
+            if when.elapsed() >= std::time::Duration::from_secs(4) {
+                self.export_feedback = None;
+            } else {
+                ctx.request_repaint_after(std::time::Duration::from_millis(250));
+            }
         }
 
         main_view::render_header(self, ctx);

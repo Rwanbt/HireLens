@@ -1,7 +1,7 @@
 use eframe::egui::{self, RichText, TextEdit, Ui};
 
 use crate::auth::load_token;
-use crate::gui::app::HireLensApp;
+use crate::gui::app::{HireLensApp, Provider};
 use crate::gui::settings::GuiSettings;
 use crate::gui::{COL_GREEN, COL_MUTED, COL_RED, COL_YELLOW};
 
@@ -26,14 +26,16 @@ pub(crate) fn render_settings(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Co
         ui.add_space(6.0);
     }
 
+    // 6.7 — pass provider so each section knows whether to default-open
+    let active = app.provider;
     egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
-        render_openai_section(app, ui);
+        render_openai_section(app, ui, active);
         ui.add_space(10.0);
-        render_gemini_section(app, ui, ctx);
+        render_gemini_section(app, ui, ctx, active);
         ui.add_space(10.0);
-        render_local_section(app, ui, "🦙  Ollama", true);
+        render_local_section(app, ui, "🦙  Ollama", true, active);
         ui.add_space(10.0);
-        render_local_section(app, ui, "🏠  LM Studio", false);
+        render_local_section(app, ui, "🏠  LM Studio", false, active);
     });
 }
 
@@ -41,9 +43,9 @@ pub(crate) fn render_settings(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Co
 // OpenAI
 // ──────────────────────────────────────────────────────────────
 
-fn render_openai_section(app: &mut HireLensApp, ui: &mut Ui) {
+fn render_openai_section(app: &mut HireLensApp, ui: &mut Ui, active: Provider) {
     egui::CollapsingHeader::new(RichText::new("✨  OpenAI").strong())
-        .default_open(true)
+        .default_open(active == Provider::OpenAi)
         .show(ui, |ui| {
             let has_key = GuiSettings::get_openai_key().is_some();
 
@@ -108,9 +110,9 @@ fn render_openai_section(app: &mut HireLensApp, ui: &mut Ui) {
 // Google Gemini OAuth2
 // ──────────────────────────────────────────────────────────────
 
-fn render_gemini_section(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Context) {
+fn render_gemini_section(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Context, active: Provider) {
     egui::CollapsingHeader::new(RichText::new("🌟  Google Gemini (OAuth2)").strong())
-        .default_open(true)
+        .default_open(active == Provider::Gemini)
         .show(ui, |ui| {
             // Token status
             let token = load_token();
@@ -250,9 +252,20 @@ fn render_gemini_section(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Context
 // Ollama / LM Studio (shared layout)
 // ──────────────────────────────────────────────────────────────
 
-fn render_local_section(app: &mut HireLensApp, ui: &mut Ui, title: &str, is_ollama: bool) {
+fn render_local_section(
+    app: &mut HireLensApp,
+    ui: &mut Ui,
+    title: &str,
+    is_ollama: bool,
+    active: Provider,
+) {
+    let open = if is_ollama {
+        matches!(active, Provider::Ollama | Provider::Offline)
+    } else {
+        active == Provider::LmStudio
+    };
     egui::CollapsingHeader::new(RichText::new(title).strong())
-        .default_open(true)
+        .default_open(open)
         .show(ui, |ui| {
             let ping_status = if is_ollama {
                 app.ping_status.map(|(o, _)| o)

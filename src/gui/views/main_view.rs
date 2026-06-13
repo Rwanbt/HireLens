@@ -131,8 +131,13 @@ pub(crate) fn render_inputs(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Cont
 }
 
 pub(crate) fn render_controls(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Context) {
+    use crate::gui::state::{AdaptState, AuditState};
+
     ui.horizontal(|ui| {
         ui.label(RichText::new("Provider :").color(COL_MUTED));
+
+        // 6.3 — Gemini disabled when not configured
+        let gemini_configured = !app.settings.gemini.client_id.is_empty();
         egui::ComboBox::from_id_salt("provider_combo")
             .selected_text(app.provider.label())
             .width(180.0)
@@ -142,10 +147,20 @@ pub(crate) fn render_controls(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Co
                     Provider::Ollama,
                     Provider::LmStudio,
                     Provider::OpenAi,
-                    Provider::Gemini,
                 ] {
                     ui.selectable_value(&mut app.provider, p, p.label());
                 }
+                let resp = ui.add_enabled(
+                    gemini_configured,
+                    egui::SelectableLabel::new(
+                        app.provider == Provider::Gemini,
+                        Provider::Gemini.label(),
+                    ),
+                );
+                if resp.clicked() {
+                    app.provider = Provider::Gemini;
+                }
+                resp.on_disabled_hover_text("Configurez Gemini dans ⚙️ Paramètres");
             });
 
         ui.add_space(12.0);
@@ -156,28 +171,48 @@ pub(crate) fn render_controls(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Co
         } else {
             let has_input = !app.cv_text.trim().is_empty() && !app.job_text.trim().is_empty();
 
-            let analyze_btn = ui.add_enabled(
-                has_input,
+            // 6.1 — always-enabled buttons; track first failed attempt
+            let analyze_btn = ui.add(
                 egui::Button::new(RichText::new("🔍  Analyser").size(14.0))
                     .min_size(Vec2::new(130.0, 32.0)),
             );
             if analyze_btn.clicked() {
-                app.start_audit(ctx);
+                if has_input {
+                    app.start_audit(ctx);
+                } else {
+                    app.tried_without_input = true;
+                }
             }
 
             ui.add_space(6.0);
 
-            let optimize_btn = ui.add_enabled(
-                has_input,
+            let optimize_btn = ui.add(
                 egui::Button::new(RichText::new("✨  Optimiser le CV").size(14.0))
                     .min_size(Vec2::new(160.0, 32.0))
                     .fill(Color32::from_rgb(30, 90, 45)),
             );
             if optimize_btn.clicked() {
-                app.start_adapt(ctx);
+                if has_input {
+                    app.start_adapt(ctx);
+                } else {
+                    app.tried_without_input = true;
+                }
             }
 
-            if !has_input {
+            // 6.4 — Reset button
+            ui.add_space(12.0);
+            if ui.button(RichText::new("🔄 Réinitialiser").size(13.0)).clicked() {
+                app.cv_text.clear();
+                app.job_text.clear();
+                app.audit_state = AuditState::Idle;
+                app.adapt_state = AdaptState::Idle;
+                app.tried_without_input = false;
+                app.save_status = None;
+                app.export_feedback = None;
+            }
+
+            // 6.1 — warning shown only after a failed click attempt
+            if app.tried_without_input && !has_input {
                 ui.add_space(8.0);
                 ui.label(
                     RichText::new("⚠  Remplissez les deux champs")
@@ -229,7 +264,7 @@ pub(crate) fn render_results(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Con
         }
         ui.separator();
         ui.add_space(6.0);
-        render_adapted_panel(app, ui, ctx, &markdown);
+        render_adapted_panel(app, ui, ctx, &markdown, &audit);
     }
 }
 
@@ -308,7 +343,7 @@ fn render_audit_panel(ui: &mut Ui, report: &AuditReport) {
                 egui::CollapsingHeader::new(
                     RichText::new("▸ Pourquoi ce score ?").size(12.0).color(COL_MUTED),
                 )
-                .default_open(false)
+                .default_open(true)
                 .show(ui, |ui| {
                     for r in &report.explanations {
                         let (label, color) = match r.status {
@@ -333,14 +368,26 @@ fn render_audit_panel(ui: &mut Ui, report: &AuditReport) {
     ui.add_space(8.0);
 }
 
-fn render_adapted_panel(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Context, markdown: &str) {
-    // ── Title + export toolbar ──
-    ui.horizontal(|ui| {
-        ui.label(RichText::new("✨  CV Optimisé").size(16.0).strong());
-        ui.add_space(12.0);
+fn render_adapted_panel(
+    app: &mut HireLensApp,
+    ui: &mut Ui,
+    ctx: &egui::Context,
+    markdown: &str,
+    audit: &AuditReport,
+) {
+    // 6.5 — title with ATS score
+    ui.label(
+        RichText::new(format!("✨  CV Optimisé  —  Score ATS : {}/100", audit.score.score))
+            .size(16.0)
+            .strong(),
+    );
+    ui.add_space(6.0);
 
+    // ── Export toolbar ──
+    ui.horizontal(|ui| {
         let saving = app.is_saving();
 
+        // 6.6 — file-export group
         if ui
             .add_enabled(!saving, egui::Button::new(RichText::new("💾  Enregistrer .md").size(13.0)))
             .clicked()
@@ -367,18 +414,21 @@ fn render_adapted_panel(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Context,
             app.start_export_pdf(markdown.to_owned(), ctx);
         }
 
-        ui.add_space(4.0);
+        // 6.6 — visual separator before copy
+        ui.separator();
 
+        // 6.8 — copy sets export_feedback with Instant
         if ui.button(RichText::new("📋  Copier").size(13.0)).clicked() {
             ui.output_mut(|o| o.copied_text = markdown.to_owned());
-            app.save_status = Some("✅ Copié dans le presse-papiers".to_owned());
+            app.export_feedback =
+                Some(("✅ Copié dans le presse-papiers".to_owned(), std::time::Instant::now()));
         }
 
-        // Status message
+        // 6.8 — status from export_feedback (auto-clears after 4s)
         if saving {
             ui.add_space(8.0);
             ui.spinner();
-        } else if let Some(status) = &app.save_status {
+        } else if let Some((status, _)) = &app.export_feedback {
             let color = if status.starts_with('✅') { COL_GREEN } else { COL_RED };
             ui.add_space(8.0);
             ui.label(RichText::new(status).size(12.0).color(color));
@@ -387,10 +437,11 @@ fn render_adapted_panel(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Context,
 
     ui.add_space(8.0);
 
+    // 6.5 — no max_height cap; outer ScrollArea in app.rs handles overflow
     let mut display = markdown.to_owned();
     ScrollArea::vertical()
         .id_salt("cv_output_scroll")
-        .max_height(400.0)
+        .max_height(f32::INFINITY)
         .show(ui, |ui| {
             ui.add(
                 TextEdit::multiline(&mut display)
