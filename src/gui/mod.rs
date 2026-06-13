@@ -1,4 +1,5 @@
 mod app;
+mod controller;
 pub(crate) mod html_export;
 pub(crate) mod settings;
 mod state;

@@ -206,13 +206,13 @@ Why:
 
 ### 2.2 — Layer Controller GUI
 
-- [ ] **2.2.1 — Créer le controller**
+- [x] **2.2.1 — Créer le controller**
   - 📁 Fichier : `src/gui/controller.rs` (nouveau) + `pub mod controller;` dans `src/gui/mod.rs`
   - 🔧 Action : y déplacer `start_audit` / `start_adapt` / `start_export_html` / `start_export_pdf` / `start_save_md` depuis `app.rs`.
   - ⚠️ Déplacer une méthode à la fois, `cargo build` entre chaque.
   - ✅ Vérifier : `cargo build` + `cargo test` après CHAQUE méthode déplacée.
 
-- [ ] **2.2.2 — Vérifier la taille d'`app.rs`**
+- [x] **2.2.2 — Vérifier la taille d'`app.rs`**
   - ✅ Vérifier : `app.rs` doit retomber sous 300 LOC. Commande : `(Get-Content src/gui/app.rs).Count`.
 
 ### 2.3 — Fallback LlmRouter local
