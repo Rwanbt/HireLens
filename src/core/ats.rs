@@ -43,7 +43,11 @@ pub fn compute_audit(cv: &Cv, job: &JobDescription) -> AuditReport {
             } else {
                 SkillStatus::Weak
             };
-            ScoreReason { skill: sig.skill, status, occurrences: sig.occurrences }
+            ScoreReason {
+                skill: sig.skill,
+                status,
+                occurrences: sig.occurrences,
+            }
         })
         .collect();
 

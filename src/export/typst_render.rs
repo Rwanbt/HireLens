@@ -57,12 +57,16 @@ impl World for HireLensWorld {
         if id == self.main_id {
             Ok(self.main_source.clone())
         } else {
-            Err(FileError::NotFound(id.vpath().as_rooted_path().to_path_buf()))
+            Err(FileError::NotFound(
+                id.vpath().as_rooted_path().to_path_buf(),
+            ))
         }
     }
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {
-        Err(FileError::NotFound(id.vpath().as_rooted_path().to_path_buf()))
+        Err(FileError::NotFound(
+            id.vpath().as_rooted_path().to_path_buf(),
+        ))
     }
 
     fn font(&self, index: usize) -> Option<Font> {

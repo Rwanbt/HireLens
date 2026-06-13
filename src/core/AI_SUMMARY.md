@@ -1,6 +1,6 @@
 # AI_SUMMARY — core
 
-> **Auto-generated 2026-06-13 13:56** — do not edit manually.
+> **Auto-generated 2026-06-13 15:15** — do not edit manually.
 > Source: `tools/ai_docs/generate_ai_summary.py`
 > For purpose, thread model and constraints, read `AI_CONTEXT.md`.
 
@@ -21,12 +21,12 @@ Business logic of HireLens: ATS skill scoring, skill normalization, adaptation v
 | File | LOC | |
 |------|-----|--|
 | `ats.rs` | 120 | |
-| `matching.rs` | 65 | |
+| `matching.rs` | 74 | |
 | `mod.rs` | 35 | |
-| `pipeline.rs` | 291 | |
+| `pipeline.rs` | 293 | |
 | `skills.rs` | 177 | |
 | `validation.rs` | 142 | |
-| **Total** | **830** | |
+| **Total** | **841** | |
 
 ## Rust API
 - `AdaptedCv` (struct)

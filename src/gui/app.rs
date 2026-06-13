@@ -269,4 +269,3 @@ impl eframe::App for HireLensApp {
         });
     }
 }
-

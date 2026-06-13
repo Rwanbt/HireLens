@@ -215,7 +215,12 @@ impl Pipeline {
         let cache = Cache::configured();
         let body = serde_json::to_string(&(cv, job, &allowed_skills))?;
         let combined = format!("{cv_text}{job_text}");
-        let key = cache.key("adapt_web", &[], &format!("{body}{combined}"), self.llm.provider_name())?;
+        let key = cache.key(
+            "adapt_web",
+            &[],
+            &format!("{body}{combined}"),
+            self.llm.provider_name(),
+        )?;
         let request = AdaptationRequest {
             cv: cv.clone(),
             job: job.clone(),
@@ -317,7 +322,12 @@ impl Pipeline {
     ) -> Result<AdaptationResponse> {
         let cache = Cache::configured();
         let body = serde_json::to_string(&(cv, job, &allowed_skills))?;
-        let key = cache.key("adapt", &[cv_path, job_path], &body, self.llm.provider_name())?;
+        let key = cache.key(
+            "adapt",
+            &[cv_path, job_path],
+            &body,
+            self.llm.provider_name(),
+        )?;
         let request = AdaptationRequest {
             cv: cv.clone(),
             job: job.clone(),

@@ -176,7 +176,14 @@ impl HireLensApp {
                             .map_err(|e| friendly_error(e.to_string()))?;
                         let pipeline = Pipeline::new(router);
                         pipeline
-                            .audit_text(&cv, &job, PipelineOptions { offline, use_cache: true })
+                            .audit_text(
+                                &cv,
+                                &job,
+                                PipelineOptions {
+                                    offline,
+                                    use_cache: true,
+                                },
+                            )
                             .await
                             .map_err(|e| friendly_error(e.to_string()))
                     })
@@ -216,7 +223,14 @@ impl HireLensApp {
                             .map_err(|e| friendly_error(e.to_string()))?;
                         let pipeline = Pipeline::new(router);
                         pipeline
-                            .adapt_text(&cv, &job, PipelineOptions { offline, use_cache: true })
+                            .adapt_text(
+                                &cv,
+                                &job,
+                                PipelineOptions {
+                                    offline,
+                                    use_cache: true,
+                                },
+                            )
                             .await
                             .map(|adapted| (adapted.rendered_markdown, adapted.audit))
                             .map_err(|e| friendly_error(e.to_string()))
@@ -239,7 +253,8 @@ fn friendly_error(msg: String) -> String {
         }
     }
     if msg.contains("OPENAI_API_KEY") || msg.contains("401") || msg.contains("Unauthorized") {
-        return "Clé API OpenAI manquante ou invalide. Configurez-la dans ⚙️ Paramètres.".to_owned();
+        return "Clé API OpenAI manquante ou invalide. Configurez-la dans ⚙️ Paramètres."
+            .to_owned();
     }
     msg
 }

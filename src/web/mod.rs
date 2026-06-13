@@ -87,7 +87,14 @@ async fn do_audit(req: ApiRequest) -> anyhow::Result<AuditReport> {
     let router = LlmRouter::new(kind)?;
     let pipeline = Pipeline::new(router);
     pipeline
-        .audit_text(cv, job, PipelineOptions { offline, use_cache: true })
+        .audit_text(
+            cv,
+            job,
+            PipelineOptions {
+                offline,
+                use_cache: true,
+            },
+        )
         .await
 }
 
@@ -101,7 +108,14 @@ async fn do_adapt(req: ApiRequest) -> anyhow::Result<AdaptData> {
     let router = LlmRouter::new(kind)?;
     let pipeline = Pipeline::new(router);
     let result = pipeline
-        .adapt_text(cv, job, PipelineOptions { offline, use_cache: true })
+        .adapt_text(
+            cv,
+            job,
+            PipelineOptions {
+                offline,
+                use_cache: true,
+            },
+        )
         .await?;
 
     Ok(AdaptData {
@@ -174,10 +188,18 @@ struct ApiResponse<T: Serialize> {
 
 impl<T: Serialize> ApiResponse<T> {
     fn ok(data: T) -> Self {
-        Self { ok: true, data: Some(data), error: None }
+        Self {
+            ok: true,
+            data: Some(data),
+            error: None,
+        }
     }
     fn err(message: String) -> Self {
-        Self { ok: false, data: None, error: Some(message) }
+        Self {
+            ok: false,
+            data: None,
+            error: Some(message),
+        }
     }
 }
 

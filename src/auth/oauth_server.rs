@@ -56,8 +56,10 @@ impl CallbackServer {
             let state = params.get("state").cloned().unwrap_or_default();
 
             if code.is_empty() {
-                let error =
-                    params.get("error").cloned().unwrap_or_else(|| "unknown error".to_owned());
+                let error = params
+                    .get("error")
+                    .cloned()
+                    .unwrap_or_else(|| "unknown error".to_owned());
                 anyhow::bail!("OAuth2 callback error: {error}");
             }
 

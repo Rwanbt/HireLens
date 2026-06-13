@@ -21,22 +21,28 @@ pub(crate) fn render_settings(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Co
 
     // ── Status message ──
     if let Some(status) = &app.settings_status.clone() {
-        let color = if status.starts_with('✅') { COL_GREEN } else { COL_RED };
+        let color = if status.starts_with('✅') {
+            COL_GREEN
+        } else {
+            COL_RED
+        };
         ui.label(RichText::new(status).size(12.0).color(color));
         ui.add_space(6.0);
     }
 
     // 6.7 — pass provider so each section knows whether to default-open
     let active = app.provider;
-    egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
-        render_openai_section(app, ui, active);
-        ui.add_space(10.0);
-        render_gemini_section(app, ui, ctx, active);
-        ui.add_space(10.0);
-        render_local_section(app, ui, "🦙  Ollama", true, active);
-        ui.add_space(10.0);
-        render_local_section(app, ui, "🏠  LM Studio", false, active);
-    });
+    egui::ScrollArea::vertical()
+        .auto_shrink(false)
+        .show(ui, |ui| {
+            render_openai_section(app, ui, active);
+            ui.add_space(10.0);
+            render_gemini_section(app, ui, ctx, active);
+            ui.add_space(10.0);
+            render_local_section(app, ui, "🦙  Ollama", true, active);
+            ui.add_space(10.0);
+            render_local_section(app, ui, "🏠  LM Studio", false, active);
+        });
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -51,7 +57,11 @@ fn render_openai_section(app: &mut HireLensApp, ui: &mut Ui, active: Provider) {
 
             ui.horizontal(|ui| {
                 if has_key {
-                    ui.label(RichText::new("✅ Clé configurée").color(COL_GREEN).size(12.0));
+                    ui.label(
+                        RichText::new("✅ Clé configurée")
+                            .color(COL_GREEN)
+                            .size(12.0),
+                    );
                 } else {
                     ui.label(RichText::new("❌ Aucune clé").color(COL_RED).size(12.0));
                 }
@@ -60,7 +70,11 @@ fn render_openai_section(app: &mut HireLensApp, ui: &mut Ui, active: Provider) {
             ui.add_space(4.0);
 
             ui.horizontal(|ui| {
-                ui.label(RichText::new("Nouvelle clé API :").color(COL_MUTED).size(12.0));
+                ui.label(
+                    RichText::new("Nouvelle clé API :")
+                        .color(COL_MUTED)
+                        .size(12.0),
+                );
             });
 
             let visible = app.openai_key_visible;
@@ -71,7 +85,11 @@ fn render_openai_section(app: &mut HireLensApp, ui: &mut Ui, active: Provider) {
             ui.add(input);
 
             ui.horizontal(|ui| {
-                let toggle_label = if visible { "🙈 Masquer" } else { "👁 Afficher" };
+                let toggle_label = if visible {
+                    "🙈 Masquer"
+                } else {
+                    "👁 Afficher"
+                };
                 if ui.small_button(toggle_label).clicked() {
                     app.openai_key_visible = !app.openai_key_visible;
                 }
@@ -80,13 +98,15 @@ fn render_openai_section(app: &mut HireLensApp, ui: &mut Ui, active: Provider) {
 
                 let can_save = !app.openai_key_input.is_empty();
                 if ui
-                    .add_enabled(can_save, egui::Button::new(RichText::new("💾 Enregistrer").size(12.0)))
+                    .add_enabled(
+                        can_save,
+                        egui::Button::new(RichText::new("💾 Enregistrer").size(12.0)),
+                    )
                     .clicked()
                 {
                     match GuiSettings::set_openai_key(&app.openai_key_input) {
                         Ok(()) => {
-                            app.settings_status =
-                                Some("✅ Clé API OpenAI enregistrée.".to_owned());
+                            app.settings_status = Some("✅ Clé API OpenAI enregistrée.".to_owned());
                             app.openai_key_input.clear();
                         }
                         Err(e) => {
@@ -96,7 +116,8 @@ fn render_openai_section(app: &mut HireLensApp, ui: &mut Ui, active: Provider) {
                 }
 
                 if has_key
-                    && ui.small_button(RichText::new("🗑 Effacer").size(12.0).color(COL_RED))
+                    && ui
+                        .small_button(RichText::new("🗑 Effacer").size(12.0).color(COL_RED))
                         .clicked()
                 {
                     GuiSettings::delete_openai_key();
@@ -110,7 +131,12 @@ fn render_openai_section(app: &mut HireLensApp, ui: &mut Ui, active: Provider) {
 // Google Gemini OAuth2
 // ──────────────────────────────────────────────────────────────
 
-fn render_gemini_section(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Context, active: Provider) {
+fn render_gemini_section(
+    app: &mut HireLensApp,
+    ui: &mut Ui,
+    ctx: &egui::Context,
+    active: Provider,
+) {
     egui::CollapsingHeader::new(RichText::new("🌟  Google Gemini (OAuth2)").strong())
         .default_open(active == Provider::Gemini)
         .show(ui, |ui| {
@@ -341,7 +367,12 @@ fn render_local_section(
             if pinging {
                 ui.horizontal(|ui| {
                     ui.spinner();
-                    ui.label(RichText::new("  Test en cours…").italics().size(12.0).color(COL_MUTED));
+                    ui.label(
+                        RichText::new("  Test en cours…")
+                            .italics()
+                            .size(12.0)
+                            .color(COL_MUTED),
+                    );
                 });
             } else if ui
                 .button(RichText::new("🔄 Tester la connexion").size(12.0))

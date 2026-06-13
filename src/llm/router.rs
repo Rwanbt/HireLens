@@ -66,9 +66,7 @@ impl LlmRouter {
                 .await?;
                 Arc::new(GeminiProvider::with_token(token, opts.gemini_model.clone()))
             }
-            LlmProviderKind::OpenAi => {
-                Arc::new(OpenAiProvider::from_keyring_or_env()?)
-            }
+            LlmProviderKind::OpenAi => Arc::new(OpenAiProvider::from_keyring_or_env()?),
             LlmProviderKind::Ollama => Arc::new(OllamaProvider::with_settings(
                 opts.ollama_url.clone(),
                 opts.ollama_model.clone(),
@@ -95,7 +93,10 @@ impl LlmRouter {
                 config.lmstudio_model(),
             )),
         ];
-        Self { provider: Arc::new(FallbackProvider { providers }), name: "local-fallback".to_owned() }
+        Self {
+            provider: Arc::new(FallbackProvider { providers }),
+            name: "local-fallback".to_owned(),
+        }
     }
 
     pub async fn extract_skills(
@@ -150,10 +151,7 @@ impl LlmProvider for FallbackProvider {
         Err(last_err)
     }
 
-    async fn generate_adaptation(
-        &self,
-        request: AdaptationRequest,
-    ) -> Result<AdaptationResponse> {
+    async fn generate_adaptation(&self, request: AdaptationRequest) -> Result<AdaptationResponse> {
         let mut last_err = anyhow::anyhow!("no local providers available");
         for provider in &self.providers {
             match provider.generate_adaptation(request.clone()).await {
@@ -185,7 +183,10 @@ mod tests {
     impl MockProvider {
         fn spawn(behavior: Behavior) -> (Arc<dyn LlmProvider>, Arc<AtomicUsize>) {
             let calls = Arc::new(AtomicUsize::new(0));
-            let provider = Arc::new(MockProvider { behavior, calls: calls.clone() });
+            let provider = Arc::new(MockProvider {
+                behavior,
+                calls: calls.clone(),
+            });
             (provider, calls)
         }
 
@@ -207,7 +208,9 @@ mod tests {
             &self,
             _request: ExtractSkillsRequest,
         ) -> Result<ExtractSkillsResponse> {
-            self.outcome(ExtractSkillsResponse { skills: vec!["rust".into()] })
+            self.outcome(ExtractSkillsResponse {
+                skills: vec!["rust".into()],
+            })
         }
 
         async fn generate_adaptation(
@@ -222,27 +225,42 @@ mod tests {
     }
 
     fn request() -> ExtractSkillsRequest {
-        ExtractSkillsRequest { source_name: "CV".into(), text: "rust".into() }
+        ExtractSkillsRequest {
+            source_name: "CV".into(),
+            text: "rust".into(),
+        }
     }
 
     #[tokio::test]
     async fn fallback_triggers_on_connection_error() {
         let (first, first_calls) = MockProvider::spawn(Behavior::ConnError);
         let (second, second_calls) = MockProvider::spawn(Behavior::Ok);
-        let fallback = FallbackProvider { providers: vec![first, second] };
+        let fallback = FallbackProvider {
+            providers: vec![first, second],
+        };
 
         let result = fallback.extract_skills(request()).await;
 
         assert!(result.is_ok());
-        assert_eq!(first_calls.load(Ordering::SeqCst), 1, "first provider tried");
-        assert_eq!(second_calls.load(Ordering::SeqCst), 1, "fell back to second");
+        assert_eq!(
+            first_calls.load(Ordering::SeqCst),
+            1,
+            "first provider tried"
+        );
+        assert_eq!(
+            second_calls.load(Ordering::SeqCst),
+            1,
+            "fell back to second"
+        );
     }
 
     #[tokio::test]
     async fn fallback_skipped_on_auth_error() {
         let (first, first_calls) = MockProvider::spawn(Behavior::AuthError);
         let (second, second_calls) = MockProvider::spawn(Behavior::Ok);
-        let fallback = FallbackProvider { providers: vec![first, second] };
+        let fallback = FallbackProvider {
+            providers: vec![first, second],
+        };
 
         let result = fallback.extract_skills(request()).await;
 
@@ -259,7 +277,9 @@ mod tests {
     async fn fallback_exhausted_returns_connection_error() {
         let (first, _) = MockProvider::spawn(Behavior::ConnError);
         let (second, _) = MockProvider::spawn(Behavior::ConnError);
-        let fallback = FallbackProvider { providers: vec![first, second] };
+        let fallback = FallbackProvider {
+            providers: vec![first, second],
+        };
 
         let error = fallback
             .extract_skills(request())

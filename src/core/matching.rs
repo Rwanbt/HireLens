@@ -61,14 +61,23 @@ mod tests {
     #[test]
     fn count_skill_occurrences_respects_word_boundary() {
         // "rust" inside "frustrated" must NOT match
-        let job = make_job("I am frustrated with this job. No Rust mention.", vec!["rust"]);
+        let job = make_job(
+            "I am frustrated with this job. No Rust mention.",
+            vec!["rust"],
+        );
         let signals = count_skill_occurrences(&job);
-        assert_eq!(signals[0].occurrences, 1, "'rust' should match 'Rust' but not 'frust-rated'");
+        assert_eq!(
+            signals[0].occurrences, 1,
+            "'rust' should match 'Rust' but not 'frust-rated'"
+        );
     }
 
     #[test]
     fn count_skill_occurrences_counts_correctly() {
-        let job = make_job("We need rust developers. Rust experience is required.", vec!["Rust"]);
+        let job = make_job(
+            "We need rust developers. Rust experience is required.",
+            vec!["Rust"],
+        );
         let signals = count_skill_occurrences(&job);
         assert_eq!(signals.len(), 1);
         assert_eq!(signals[0].skill, "rust");
@@ -91,7 +100,10 @@ mod tests {
 
     #[test]
     fn count_skill_occurrences_multiple_skills() {
-        let job = make_job("docker docker docker kubernetes kubernetes", vec!["Docker", "Kubernetes", "Rust"]);
+        let job = make_job(
+            "docker docker docker kubernetes kubernetes",
+            vec!["Docker", "Kubernetes", "Rust"],
+        );
         let signals = count_skill_occurrences(&job);
         assert_eq!(signals[0].occurrences, 3);
         assert_eq!(signals[1].occurrences, 2);

@@ -33,7 +33,13 @@ impl Cache {
         Self { root }
     }
 
-    pub fn key(&self, namespace: &str, paths: &[&Path], body: &str, provider: &str) -> Result<String> {
+    pub fn key(
+        &self,
+        namespace: &str,
+        paths: &[&Path],
+        body: &str,
+        provider: &str,
+    ) -> Result<String> {
         let mut hasher = Sha256::new();
         hasher.update(namespace.as_bytes());
         // Include the provider so Ollama and OpenAI responses are never mixed in cache.

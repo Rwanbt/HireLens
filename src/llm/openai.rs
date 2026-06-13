@@ -42,9 +42,7 @@ impl OpenAiProvider {
         .ok()
         .and_then(|e| e.get_password().ok())
         .or_else(|| config.openai_api_key())
-        .context(
-            "Clé API OpenAI non configurée. Ajoutez-la dans ⚙️ Paramètres → OpenAI.",
-        )?;
+        .context("Clé API OpenAI non configurée. Ajoutez-la dans ⚙️ Paramètres → OpenAI.")?;
 
         Ok(Self {
             client: Client::builder().timeout(config.timeout()).build()?,

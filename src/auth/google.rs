@@ -40,7 +40,12 @@ pub fn start_google_oauth_sync(client_id: &str, client_secret: &str) -> Result<(
     let pkce_challenge = pkce::generate();
     let state = random_hex(16);
 
-    let auth_url = build_auth_url(client_id, &redirect_uri, &pkce_challenge.code_challenge, &state);
+    let auth_url = build_auth_url(
+        client_id,
+        &redirect_uri,
+        &pkce_challenge.code_challenge,
+        &state,
+    );
     open::that(&auth_url).context("Impossible d'ouvrir le navigateur")?;
 
     let (code, returned_state) = server.wait_for_callback()?;
@@ -166,7 +171,11 @@ fn into_stored_token(
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
-    StoredToken { access_token, refresh_token, expires_at: now + expires_in }
+    StoredToken {
+        access_token,
+        refresh_token,
+        expires_at: now + expires_in,
+    }
 }
 
 fn build_auth_url(

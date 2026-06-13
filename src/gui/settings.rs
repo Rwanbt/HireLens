@@ -82,10 +82,13 @@ impl GuiSettings {
 
 impl GuiSettings {
     pub(crate) fn get_openai_key() -> Option<String> {
-        keyring::Entry::new(crate::auth::KEYRING_SERVICE, crate::auth::KEYRING_OPENAI_ACCOUNT)
-            .ok()
-            .and_then(|e| e.get_password().ok())
-            .filter(|s| !s.is_empty())
+        keyring::Entry::new(
+            crate::auth::KEYRING_SERVICE,
+            crate::auth::KEYRING_OPENAI_ACCOUNT,
+        )
+        .ok()
+        .and_then(|e| e.get_password().ok())
+        .filter(|s| !s.is_empty())
     }
 
     pub(crate) fn set_openai_key(key: &str) -> Result<()> {

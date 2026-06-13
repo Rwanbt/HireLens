@@ -10,7 +10,11 @@ pub(crate) fn render_gauge(ui: &mut Ui, score: u8) {
     let radius = 52.0_f32;
     let stroke_w = 9.0_f32;
 
-    painter.circle_stroke(center, radius, Stroke::new(stroke_w, Color32::from_gray(48)));
+    painter.circle_stroke(
+        center,
+        radius,
+        Stroke::new(stroke_w, Color32::from_gray(48)),
+    );
 
     let color = score_color(score);
     if score > 0 {

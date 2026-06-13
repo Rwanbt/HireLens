@@ -1,6 +1,6 @@
 # AI_SUMMARY — llm
 
-> **Auto-generated 2026-06-13 13:59** — do not edit manually.
+> **Auto-generated 2026-06-13 15:14** — do not edit manually.
 > Source: `tools/ai_docs/generate_ai_summary.py`
 > For purpose, thread model and constraints, read `AI_CONTEXT.md`.
 
@@ -26,9 +26,9 @@ LLM provider abstraction layer: `trait LlmProvider` defines the contract, `LlmRo
 | `mod.rs` | 14 | |
 | `ollama.rs` | 80 | |
 | `openai.rs` | 73 | |
-| `provider.rs` | 50 | |
-| `router.rs` | 198 | |
-| **Total** | **672** | |
+| `provider.rs` | 58 | |
+| `router.rs` | 217 | |
+| **Total** | **699** | |
 
 ## Rust API
 - `AdaptationRequest` (struct)

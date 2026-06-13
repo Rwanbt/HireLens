@@ -22,7 +22,11 @@ pub(crate) fn render_header(app: &mut HireLensApp, ctx: &egui::Context) {
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.add_space(12.0);
-                    let label = if app.show_settings { "✖ Fermer" } else { "⚙️" };
+                    let label = if app.show_settings {
+                        "✖ Fermer"
+                    } else {
+                        "⚙️"
+                    };
                     if ui.button(RichText::new(label).size(13.0)).clicked() {
                         if app.show_settings {
                             app.settings.save();
@@ -167,7 +171,11 @@ pub(crate) fn render_controls(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Co
 
         if app.is_loading() {
             ui.spinner();
-            ui.label(RichText::new("  Traitement en cours…").italics().color(COL_MUTED));
+            ui.label(
+                RichText::new("  Traitement en cours…")
+                    .italics()
+                    .color(COL_MUTED),
+            );
         } else {
             let has_input = !app.cv_text.trim().is_empty() && !app.job_text.trim().is_empty();
 
@@ -201,7 +209,10 @@ pub(crate) fn render_controls(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Co
 
             // 6.4 — Reset button
             ui.add_space(12.0);
-            if ui.button(RichText::new("🔄 Réinitialiser").size(13.0)).clicked() {
+            if ui
+                .button(RichText::new("🔄 Réinitialiser").size(13.0))
+                .clicked()
+            {
                 app.cv_text.clear();
                 app.job_text.clear();
                 app.audit_state = AuditState::Idle;
@@ -225,10 +236,16 @@ pub(crate) fn render_controls(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Co
 }
 
 pub(crate) fn render_results(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Context) {
-    let audit_report: Option<AuditReport> =
-        if let AuditState::Done(r) = &app.audit_state { Some(r.clone()) } else { None };
-    let audit_error: Option<String> =
-        if let AuditState::Error(e) = &app.audit_state { Some(e.clone()) } else { None };
+    let audit_report: Option<AuditReport> = if let AuditState::Done(r) = &app.audit_state {
+        Some(r.clone())
+    } else {
+        None
+    };
+    let audit_error: Option<String> = if let AuditState::Error(e) = &app.audit_state {
+        Some(e.clone())
+    } else {
+        None
+    };
 
     let adapt_data: Option<(String, AuditReport)> =
         if let AdaptState::Done { markdown, audit } = &app.adapt_state {
@@ -236,8 +253,11 @@ pub(crate) fn render_results(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Con
         } else {
             None
         };
-    let adapt_error: Option<String> =
-        if let AdaptState::Error(e) = &app.adapt_state { Some(e.clone()) } else { None };
+    let adapt_error: Option<String> = if let AdaptState::Error(e) = &app.adapt_state {
+        Some(e.clone())
+    } else {
+        None
+    };
     let audit_is_idle = matches!(app.audit_state, AuditState::Idle);
 
     if let Some(msg) = audit_error {
@@ -276,9 +296,12 @@ fn render_audit_panel(ui: &mut Ui, report: &AuditReport) {
             ui.add_space(4.0);
             ui.centered_and_justified(|ui| {
                 ui.label(
-                    RichText::new(format!("{:.0}% match", report.score.skill_match_ratio * 100.0))
-                        .size(12.0)
-                        .color(COL_MUTED),
+                    RichText::new(format!(
+                        "{:.0}% match",
+                        report.score.skill_match_ratio * 100.0
+                    ))
+                    .size(12.0)
+                    .color(COL_MUTED),
                 );
             });
         });
@@ -286,11 +309,20 @@ fn render_audit_panel(ui: &mut Ui, report: &AuditReport) {
         ui.add_space(20.0);
 
         ui.vertical(|ui| {
-            ui.label(RichText::new("✅  Compétences matchées").strong().color(COL_GREEN));
+            ui.label(
+                RichText::new("✅  Compétences matchées")
+                    .strong()
+                    .color(COL_GREEN),
+            );
             ui.add_space(4.0);
             ui.horizontal_wrapped(|ui| {
                 if report.matched_skills.is_empty() {
-                    ui.label(RichText::new("aucune").italics().size(12.0).color(COL_MUTED));
+                    ui.label(
+                        RichText::new("aucune")
+                            .italics()
+                            .size(12.0)
+                            .color(COL_MUTED),
+                    );
                 }
                 for s in &report.matched_skills {
                     skill_chip(ui, s, COL_GREEN);
@@ -299,11 +331,20 @@ fn render_audit_panel(ui: &mut Ui, report: &AuditReport) {
 
             ui.add_space(10.0);
 
-            ui.label(RichText::new("❌  Compétences manquantes").strong().color(COL_RED));
+            ui.label(
+                RichText::new("❌  Compétences manquantes")
+                    .strong()
+                    .color(COL_RED),
+            );
             ui.add_space(4.0);
             ui.horizontal_wrapped(|ui| {
                 if report.missing_skills.is_empty() {
-                    ui.label(RichText::new("aucune").italics().size(12.0).color(COL_MUTED));
+                    ui.label(
+                        RichText::new("aucune")
+                            .italics()
+                            .size(12.0)
+                            .color(COL_MUTED),
+                    );
                 }
                 for s in &report.missing_skills {
                     skill_chip(ui, s, COL_RED);
@@ -313,7 +354,9 @@ fn render_audit_panel(ui: &mut Ui, report: &AuditReport) {
             ui.add_space(10.0);
 
             egui::CollapsingHeader::new(
-                RichText::new("▸ Détail complet des compétences").size(12.0).color(COL_MUTED),
+                RichText::new("▸ Détail complet des compétences")
+                    .size(12.0)
+                    .color(COL_MUTED),
             )
             .default_open(false)
             .show(ui, |ui| {
@@ -329,7 +372,9 @@ fn render_audit_panel(ui: &mut Ui, report: &AuditReport) {
                 });
                 ui.add_space(6.0);
                 ui.label(
-                    RichText::new("Offre — compétences requises").size(11.0).color(COL_MUTED),
+                    RichText::new("Offre — compétences requises")
+                        .size(11.0)
+                        .color(COL_MUTED),
                 );
                 ui.horizontal_wrapped(|ui| {
                     for s in &report.job_skills {
@@ -341,7 +386,9 @@ fn render_audit_panel(ui: &mut Ui, report: &AuditReport) {
             if !report.explanations.is_empty() {
                 ui.add_space(10.0);
                 egui::CollapsingHeader::new(
-                    RichText::new("▸ Pourquoi ce score ?").size(12.0).color(COL_MUTED),
+                    RichText::new("▸ Pourquoi ce score ?")
+                        .size(12.0)
+                        .color(COL_MUTED),
                 )
                 .default_open(true)
                 .show(ui, |ui| {
@@ -377,9 +424,12 @@ fn render_adapted_panel(
 ) {
     // 6.5 — title with ATS score
     ui.label(
-        RichText::new(format!("✨  CV Optimisé  —  Score ATS : {}/100", audit.score.score))
-            .size(16.0)
-            .strong(),
+        RichText::new(format!(
+            "✨  CV Optimisé  —  Score ATS : {}/100",
+            audit.score.score
+        ))
+        .size(16.0)
+        .strong(),
     );
     ui.add_space(6.0);
 
@@ -389,7 +439,10 @@ fn render_adapted_panel(
 
         // 6.6 — file-export group
         if ui
-            .add_enabled(!saving, egui::Button::new(RichText::new("💾  Enregistrer .md").size(13.0)))
+            .add_enabled(
+                !saving,
+                egui::Button::new(RichText::new("💾  Enregistrer .md").size(13.0)),
+            )
             .clicked()
         {
             app.start_save_md(markdown.to_owned(), ctx);
@@ -398,7 +451,10 @@ fn render_adapted_panel(
         ui.add_space(4.0);
 
         if ui
-            .add_enabled(!saving, egui::Button::new(RichText::new("🌐  Exporter HTML").size(13.0)))
+            .add_enabled(
+                !saving,
+                egui::Button::new(RichText::new("🌐  Exporter HTML").size(13.0)),
+            )
             .clicked()
         {
             app.start_export_html(markdown.to_owned(), ctx);
@@ -407,7 +463,10 @@ fn render_adapted_panel(
         ui.add_space(4.0);
 
         if ui
-            .add_enabled(!saving, egui::Button::new(RichText::new("📄  PDF").size(13.0)))
+            .add_enabled(
+                !saving,
+                egui::Button::new(RichText::new("📄  PDF").size(13.0)),
+            )
             .on_hover_text("Exporter en PDF via Typst")
             .clicked()
         {
@@ -420,8 +479,10 @@ fn render_adapted_panel(
         // 6.8 — copy sets export_feedback with Instant
         if ui.button(RichText::new("📋  Copier").size(13.0)).clicked() {
             ui.output_mut(|o| o.copied_text = markdown.to_owned());
-            app.export_feedback =
-                Some(("✅ Copié dans le presse-papiers".to_owned(), std::time::Instant::now()));
+            app.export_feedback = Some((
+                "✅ Copié dans le presse-papiers".to_owned(),
+                std::time::Instant::now(),
+            ));
         }
 
         // 6.8 — status from export_feedback (auto-clears after 4s)
@@ -429,7 +490,11 @@ fn render_adapted_panel(
             ui.add_space(8.0);
             ui.spinner();
         } else if let Some((status, _)) = &app.export_feedback {
-            let color = if status.starts_with('✅') { COL_GREEN } else { COL_RED };
+            let color = if status.starts_with('✅') {
+                COL_GREEN
+            } else {
+                COL_RED
+            };
             ui.add_space(8.0);
             ui.label(RichText::new(status).size(12.0).color(color));
         }

@@ -158,10 +158,7 @@ fn skill_patterns() -> &'static [(Regex, &'static str)] {
                     r"(?i)(^|[^a-z0-9+#./]){}($|[^a-z0-9+#./])",
                     regex::escape(skill)
                 );
-                (
-                    Regex::new(&pattern).expect("invalid skill pattern"),
-                    *skill,
-                )
+                (Regex::new(&pattern).expect("invalid skill pattern"), *skill)
             })
             .collect()
     })

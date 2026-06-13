@@ -1,6 +1,6 @@
 # AI_SUMMARY — utils
 
-> **Auto-generated 2026-06-13 04:38** — do not edit manually.
+> **Auto-generated 2026-06-13 15:14** — do not edit manually.
 > Source: `tools/ai_docs/generate_ai_summary.py`
 > For purpose, thread model and constraints, read `AI_CONTEXT.md`.
 
@@ -14,10 +14,10 @@ Two utilities: `config.rs` loads `hirelens.toml` + env var overrides into a type
 ## Files & LOC
 | File | LOC | |
 |------|-----|--|
-| `cache.rs` | 99 | |
+| `cache.rs` | 100 | |
 | `config.rs` | 139 | |
 | `mod.rs` | 2 | |
-| **Total** | **240** | |
+| **Total** | **241** | |
 
 ## Rust API
 - `Cache` (struct)

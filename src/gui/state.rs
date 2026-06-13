@@ -10,6 +10,9 @@ pub(crate) enum AuditState {
 pub(crate) enum AdaptState {
     Idle,
     Loading,
-    Done { markdown: String, audit: AuditReport },
+    Done {
+        markdown: String,
+        audit: AuditReport,
+    },
     Error(String),
 }

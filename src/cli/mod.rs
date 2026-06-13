@@ -307,9 +307,21 @@ mod tests {
         use crate::core::matching::{ScoreReason, SkillStatus};
         let mut report = report();
         report.explanations = vec![
-            ScoreReason { skill: "rust".into(), status: SkillStatus::Present, occurrences: 1 },
-            ScoreReason { skill: "docker".into(), status: SkillStatus::Missing, occurrences: 3 },
-            ScoreReason { skill: "ci/cd".into(), status: SkillStatus::Weak, occurrences: 1 },
+            ScoreReason {
+                skill: "rust".into(),
+                status: SkillStatus::Present,
+                occurrences: 1,
+            },
+            ScoreReason {
+                skill: "docker".into(),
+                status: SkillStatus::Missing,
+                occurrences: 3,
+            },
+            ScoreReason {
+                skill: "ci/cd".into(),
+                status: SkillStatus::Weak,
+                occurrences: 1,
+            },
         ];
 
         let output = format_audit_report(&report);
