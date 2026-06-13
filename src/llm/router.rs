@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::Result;
+use async_trait::async_trait;
 
 use super::provider::{
     AdaptationRequest, AdaptationResponse, ExtractSkillsRequest, ExtractSkillsResponse,
@@ -68,6 +69,16 @@ impl LlmRouter {
         Ok(Self { provider })
     }
 
+    /// Local-only mode with automatic fallback: Ollama → LM Studio → offline (skip LLM).
+    /// Never falls back to cloud providers.
+    pub fn new_local_with_fallback() -> Self {
+        let providers: Vec<Arc<dyn LlmProvider>> = vec![
+            Arc::new(OllamaProvider::default()),
+            Arc::new(LmStudioProvider::default()),
+        ];
+        Self { provider: Arc::new(FallbackProvider { providers }) }
+    }
+
     pub async fn extract_skills(
         &self,
         request: ExtractSkillsRequest,
@@ -80,5 +91,53 @@ impl LlmRouter {
         request: AdaptationRequest,
     ) -> Result<AdaptationResponse> {
         self.provider.generate_adaptation(request).await
+    }
+}
+
+// ──────────────────────────────────────────────────────────────
+// FallbackProvider — tries providers in order on connection errors
+// ──────────────────────────────────────────────────────────────
+
+struct FallbackProvider {
+    providers: Vec<Arc<dyn LlmProvider>>,
+}
+
+impl FallbackProvider {
+    fn is_connection_error(e: &anyhow::Error) -> bool {
+        let msg = e.to_string();
+        msg.contains("Connection refused")
+            || msg.contains("tcp connect")
+            || msg.contains("10061")
+            || msg.contains("error sending request")
+    }
+}
+
+#[async_trait]
+impl LlmProvider for FallbackProvider {
+    async fn extract_skills(&self, request: ExtractSkillsRequest) -> Result<ExtractSkillsResponse> {
+        let mut last_err = anyhow::anyhow!("no local providers available");
+        for provider in &self.providers {
+            match provider.extract_skills(request.clone()).await {
+                Ok(r) => return Ok(r),
+                Err(e) if Self::is_connection_error(&e) => last_err = e,
+                Err(e) => return Err(e),
+            }
+        }
+        Err(last_err)
+    }
+
+    async fn generate_adaptation(
+        &self,
+        request: AdaptationRequest,
+    ) -> Result<AdaptationResponse> {
+        let mut last_err = anyhow::anyhow!("no local providers available");
+        for provider in &self.providers {
+            match provider.generate_adaptation(request.clone()).await {
+                Ok(r) => return Ok(r),
+                Err(e) if Self::is_connection_error(&e) => last_err = e,
+                Err(e) => return Err(e),
+            }
+        }
+        Err(last_err)
     }
 }

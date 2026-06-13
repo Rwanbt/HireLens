@@ -217,7 +217,7 @@ Why:
 
 ### 2.3 — Fallback LlmRouter local
 
-- [ ] **2.3.1 — Fallback Ollama → LM Studio → offline**
+- [x] **2.3.1 — Fallback Ollama → LM Studio → offline**
   - 📁 Fichier : `src/llm/router.rs`
   - 🔧 Action : si le provider local échoue à se connecter, essayer le suivant. ⚠️ **JAMAIS** de fallback vers le cloud.
   - ✅ Vérifier : `cargo test`.
