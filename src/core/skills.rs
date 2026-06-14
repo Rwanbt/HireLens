@@ -278,6 +278,24 @@ pub fn normalize_skill(skill: &str) -> String {
         .to_lowercase()
 }
 
+/// Single-word tokens appearing in any *canonical* known skill. Used by keyword
+/// extraction to keep the keyword signal orthogonal to the skill signal (RFC
+/// §5.5 — `keyword_cov` is "hors skills dico").
+///
+/// Built from `KNOWN_SKILLS` only, never from alias keys: alias surface forms
+/// include descriptive phrases (`google cloud platform`, `amazon web services`)
+/// whose generic words (`platform`, `cloud`, `web`) are legitimate keywords.
+pub(crate) fn skill_words() -> &'static HashSet<String> {
+    static SET: OnceLock<HashSet<String>> = OnceLock::new();
+    SET.get_or_init(|| {
+        let mut set = HashSet::new();
+        for skill in KNOWN_SKILLS {
+            set.extend(crate::core::text::tokenize_words(skill));
+        }
+        set
+    })
+}
+
 pub fn skill_set(skills: &[String]) -> HashSet<String> {
     // NOTE: normalise only — never alias-canonicalise here. `skill_set` feeds the
     // anti-hallucination whitelist in `validation.rs`; collapsing aliases would

@@ -1,7 +1,18 @@
+use std::collections::HashMap;
+
+use hashbrown::HashSet;
 use regex::Regex;
 
-use crate::core::skills::normalize_skill;
+use crate::core::skills::{normalize_skill, skill_words};
+use crate::core::text::{is_stopword, tokenize_words};
 use crate::core::JobDescription;
+
+/// How many top keywords represent the job (RFC §0.2 — Top-10–15).
+const MAX_KEYWORDS: usize = 15;
+/// Shortest token kept as a keyword (drops `ci`, `qa`, noise).
+const MIN_KEYWORD_LEN: usize = 3;
+/// Per-token frequency cap so one repeated word cannot dominate the ranking.
+const MAX_KEYWORD_OCCURRENCES: usize = 3;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum SkillStatus {
@@ -46,27 +57,44 @@ pub fn count_skill_occurrences(job: &JobDescription) -> Vec<SkillSignal> {
         .collect()
 }
 
-/// Fraction of `skills` that appear (word-boundary, case-insensitive) in `text`.
-/// Returns 1.0 for an empty skill list (nothing required → fully covered).
-pub fn keyword_coverage(skills: &[String], text: &str) -> f32 {
-    if skills.is_empty() {
+/// Top job-specific keywords: the most frequent non-stopword, non-skill tokens
+/// of the job text (RFC §0.2/§5.5). Pure function, orthogonal to the skill
+/// dimension — it never re-counts the skill signal, so the two stay independent.
+pub fn extract_keywords(job_text: &str) -> Vec<String> {
+    let skill_words = skill_words();
+    let mut counts: HashMap<String, usize> = HashMap::new();
+    for token in tokenize_words(job_text) {
+        if token.len() < MIN_KEYWORD_LEN || is_stopword(&token) || skill_words.contains(&token) {
+            continue;
+        }
+        let count = counts.entry(token).or_insert(0);
+        if *count < MAX_KEYWORD_OCCURRENCES {
+            *count += 1;
+        }
+    }
+    let mut ranked: Vec<(String, usize)> = counts.into_iter().collect();
+    // Frequency desc, then alphabetical so ties are deterministic.
+    ranked.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    ranked
+        .into_iter()
+        .take(MAX_KEYWORDS)
+        .map(|(token, _)| token)
+        .collect()
+}
+
+/// Share of the job's top keywords that literally appear in the CV text (0..=1).
+/// An empty keyword set (e.g. empty job text) yields 1.0 — nothing to cover.
+pub fn keyword_coverage(job_text: &str, cv_text: &str) -> f32 {
+    let keywords = extract_keywords(job_text);
+    if keywords.is_empty() {
         return 1.0;
     }
-    let haystack = text.to_lowercase();
-    let present = skills
+    let cv_tokens: HashSet<String> = tokenize_words(cv_text).into_iter().collect();
+    let present = keywords
         .iter()
-        .filter(|raw| {
-            let skill = normalize_skill(raw);
-            if skill.is_empty() {
-                return false;
-            }
-            let pattern = format!(r"\b{}\b", regex::escape(&skill));
-            Regex::new(&pattern)
-                .map(|re| re.is_match(&haystack))
-                .unwrap_or(false)
-        })
+        .filter(|keyword| cv_tokens.contains(*keyword))
         .count();
-    present as f32 / skills.len() as f32
+    present as f32 / keywords.len() as f32
 }
 
 #[cfg(test)]
@@ -134,20 +162,28 @@ mod tests {
     }
 
     #[test]
-    fn keyword_coverage_is_ratio_of_present_skills() {
-        let skills = vec!["Rust".into(), "Docker".into(), "Kubernetes".into()];
-        let coverage = keyword_coverage(&skills, "Built Rust apps with Docker.");
-        assert!((coverage - 2.0 / 3.0).abs() < 1e-6);
+    fn extract_keywords_drops_stopwords_and_skills() {
+        // "rust"/"docker" are skills, "the"/"for"/"a" are stopwords → excluded.
+        let keywords = extract_keywords("The payments platform for a rust and docker team.");
+        assert!(keywords.contains(&"payments".to_string()));
+        assert!(keywords.contains(&"platform".to_string()));
+        assert!(keywords.contains(&"team".to_string()));
+        assert!(!keywords.contains(&"rust".to_string()));
+        assert!(!keywords.contains(&"docker".to_string()));
+        assert!(!keywords.contains(&"the".to_string()));
     }
 
     #[test]
-    fn keyword_coverage_empty_skills_is_full() {
-        assert_eq!(keyword_coverage(&[], "anything"), 1.0);
+    fn keyword_coverage_is_ratio_present_in_cv() {
+        // job keywords: payments, platform, billing, dashboards (4 — no stopword/skill)
+        let job = "Payments platform billing dashboards.";
+        // CV mentions payments + platform only → 2 of 4 present.
+        let coverage = keyword_coverage(job, "Built a payments platform.");
+        assert!((coverage - 0.5).abs() < 1e-6, "got {coverage}");
     }
 
     #[test]
-    fn keyword_coverage_respects_word_boundary() {
-        let skills = vec!["Rust".into()];
-        assert_eq!(keyword_coverage(&skills, "I am frustrated."), 0.0);
+    fn keyword_coverage_empty_job_is_full() {
+        assert_eq!(keyword_coverage("", "anything"), 1.0);
     }
 }

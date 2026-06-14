@@ -57,7 +57,7 @@ pub fn compute_audit(cv: &Cv, job: &JobDescription) -> AuditReport {
         })
         .collect();
 
-    let keyword_score = keyword_coverage(&job.skills, &cv.raw_markdown);
+    let keyword_score = keyword_coverage(&job.raw_text, &cv.raw_markdown);
     let structure_score = structure_completeness(cv);
 
     AuditReport {
@@ -188,19 +188,21 @@ mod tests {
                 end: None,
                 bullets: vec![],
             }],
-            raw_markdown: "Rust developer experienced with Docker".into(),
+            raw_markdown: "Rust developer on a payments platform".into(),
             ..Cv::default()
         };
         let job = JobDescription {
             title: None,
-            raw_text: String::new(),
+            // non-skill keywords: payments, platform, billing, dashboards (4).
+            // CV covers payments + platform → 0.5.
+            raw_text: "Payments platform billing dashboards.".into(),
             skills: vec!["rust".into(), "docker".into()],
         };
 
         let report = compute_audit(&cv, &job);
 
-        // both job keywords appear in raw_markdown → full keyword coverage
-        assert!((report.score.keyword_score - 1.0).abs() < 1e-6);
+        // 2 of 4 job keywords present in the CV markdown → 0.5
+        assert!((report.score.keyword_score - 0.5).abs() < 1e-6);
         // skills + experience present, education missing → 2/3
         assert!((report.score.structure_score - 2.0 / 3.0).abs() < 1e-6);
     }
