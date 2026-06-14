@@ -3,6 +3,7 @@ pub mod diff;
 pub mod matching;
 pub mod pipeline;
 pub mod skills;
+pub mod text;
 pub mod validation;
 
 use serde::{Deserialize, Serialize};

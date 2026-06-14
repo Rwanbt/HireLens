@@ -1,0 +1,58 @@
+# Skill alias table — variant (surface form) → canonical skill.
+#
+# Embedded in the binary via `include_str!` (see `core/skills.rs`). Every value
+# on the right MUST be a canonical skill present in `KNOWN_SKILLS`, otherwise the
+# alias resolves to a token the rest of the engine does not recognise.
+#
+# An optional external file pointed to by the `HIRELENS_ALIASES_FILE` environment
+# variable is merged on top of this table at runtime (its entries override).
+#
+# Keys and values are normalised (trimmed + lowercased) before use, so casing and
+# surrounding punctuation here are irrelevant.
+
+[aliases]
+# Containers / orchestration
+"k8s" = "kubernetes"
+"k8" = "kubernetes"
+
+# Languages
+"golang" = "go"
+"cpp" = "c++"
+"c plus plus" = "c++"
+"c sharp" = "c#"
+"csharp" = "c#"
+
+# JS / TS ecosystem
+"js" = "javascript"
+"ts" = "typescript"
+"py" = "python"
+"reactjs" = "react"
+"react.js" = "react"
+"vuejs" = "vue"
+"vue.js" = "vue"
+"nextjs" = "next.js"
+"nuxtjs" = "nuxt"
+
+# Databases
+"postgres" = "postgresql"
+"pg" = "postgresql"
+
+# Cloud
+"amazon web services" = "aws"
+"google cloud" = "gcp"
+"google cloud platform" = "gcp"
+
+# DevOps / CI
+"gh actions" = "github actions"
+"github-actions" = "github actions"
+"gitlab-ci" = "gitlab ci"
+
+# .NET
+"dotnet" = ".net"
+
+# Data / ML
+"ml" = "machine learning"
+"deep-learning" = "deep learning"
+"sklearn" = "scikit-learn"
+"scikit learn" = "scikit-learn"
+"power-bi" = "power bi"
