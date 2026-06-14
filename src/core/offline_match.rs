@@ -6,7 +6,7 @@
 //! the original `String` is copied verbatim only at the output boundary, and
 //! `prioritized_skills` is only ever a re-ordering of the caller's allowed set.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::core::matching::weighted_requirements;
 use crate::core::similarity::lexical_similarity;
@@ -26,6 +26,11 @@ const MIN_BULLET_TOKEN_LEN: usize = 3;
 /// Default bullets kept per experience for the optimised CV (RFC §12.7).
 /// Demoted bullets are never deleted — the raw text / diff view keeps them.
 const TOP_K_PER_EXPERIENCE: usize = 5;
+/// MMR diversity discount: when a bullet's skills are already covered by a
+/// previously selected bullet, its effective relevance is reduced by this
+/// fraction of the overlap ratio (RFC §0.2, ChatGPT — diversity guard-fou).
+/// 0.5 → half-coverage of covered skills halves the marginal gain.
+const DIVERSITY_DISCOUNT: f32 = 0.5;
 
 /// Outcome of an offline match. A `core`-owned struct, deliberately NOT
 /// `AdaptationResponse` (an LLM DTO) — `pipeline` maps one to the other.
@@ -112,29 +117,68 @@ fn select_bullets(
     selected
 }
 
-/// Indices of an experience's bullets, ordered by relevance (desc), truncated to
-/// the top-K. Ties fall back to the original order for determinism.
+/// Greedy Max-Marginal-Relevance selection (RFC §0.2 — diversity guard-fou).
+///
+/// Each step picks the remaining bullet with the highest *effective* relevance:
+/// `relevance × (1 − DIVERSITY_DISCOUNT × overlap)`, where `overlap` is the
+/// fraction of the candidate's skills already covered by previously selected
+/// bullets. Ties break on the original bullet index (lower = earlier).
 fn top_bullet_indices(
     experience: &Experience,
     job: &JobDescription,
     weights: &HashMap<String, f32>,
 ) -> Vec<usize> {
-    let mut ranked: Vec<(usize, f32)> = experience
+    // (original_index, relevance, skill_set)
+    let candidates: Vec<(usize, f32, HashSet<String>)> = experience
         .bullets
         .iter()
         .enumerate()
-        .map(|(index, bullet)| (index, relevance(bullet, job, weights)))
+        .map(|(idx, bullet)| {
+            let rel = relevance(bullet, job, weights);
+            let skills: HashSet<String> = extract_local_skills(bullet).into_iter().collect();
+            (idx, rel, skills)
+        })
         .collect();
-    ranked.sort_by(|a, b| {
-        b.1.partial_cmp(&a.1)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| a.0.cmp(&b.0))
-    });
-    ranked
-        .into_iter()
-        .take(TOP_K_PER_EXPERIENCE)
-        .map(|(index, _)| index)
-        .collect()
+
+    let mut selected: Vec<usize> = Vec::with_capacity(TOP_K_PER_EXPERIENCE);
+    let mut covered: HashSet<String> = HashSet::new();
+    let mut remaining: Vec<usize> = (0..candidates.len()).collect();
+
+    while selected.len() < TOP_K_PER_EXPERIENCE && !remaining.is_empty() {
+        let best_pos = remaining
+            .iter()
+            .enumerate()
+            .max_by(|(_, &i), (_, &j)| {
+                let eff_i = mmr_effective(candidates[i].1, &candidates[i].2, &covered);
+                let eff_j = mmr_effective(candidates[j].1, &candidates[j].2, &covered);
+                eff_i
+                    .partial_cmp(&eff_j)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    // lower original index wins ties — preserves CV order deterministically
+                    .then_with(|| candidates[j].0.cmp(&candidates[i].0))
+            })
+            .map(|(pos, _)| pos);
+
+        if let Some(pos) = best_pos {
+            let ci = remaining.remove(pos);
+            selected.push(candidates[ci].0);
+            covered.extend(candidates[ci].2.iter().cloned());
+        } else {
+            break;
+        }
+    }
+    selected
+}
+
+/// Discount a bullet's relevance by how much its skills overlap with already
+/// selected bullets (RFC §0.2, ChatGPT). Bullets with zero skills or no prior
+/// coverage are unaffected.
+fn mmr_effective(rel: f32, skills: &HashSet<String>, covered: &HashSet<String>) -> f32 {
+    if skills.is_empty() || covered.is_empty() {
+        return rel;
+    }
+    let overlap = skills.intersection(covered).count() as f32 / skills.len() as f32;
+    rel * (1.0 - DIVERSITY_DISCOUNT * overlap)
 }
 
 /// `(alpha · job-skill-weight-in-bullet + beta · lexical_sim) × length_norm`
@@ -343,6 +387,43 @@ mod tests {
                 selected.bullet
             );
         }
+    }
+
+    #[test]
+    fn mmr_prefers_diverse_bullets_over_redundant_ones() {
+        // Three bullets all about Rust; one about Kubernetes.
+        // Without diversity the top-2 would both be high-weight Rust bullets;
+        // with MMR the second slot should go to the Kubernetes bullet because
+        // the Rust skill is already covered.
+        let cv = Cv {
+            experience: vec![experience(
+                "exp-1",
+                &[
+                    "Engineered Rust microservices for the trading platform.",
+                    "Deployed Kubernetes clusters for production workloads.",
+                    "Wrote Rust libraries for internal tooling at scale.",
+                ],
+            )],
+            ..Cv::default()
+        };
+        let job = make_job(
+            "We need Rust and Kubernetes for our backend platform.",
+            &["rust", "kubernetes"],
+        );
+
+        let result = run(&cv, &job, &[]);
+        let bullets: Vec<&str> = result
+            .selected_bullets
+            .iter()
+            .map(|b| b.bullet.as_str())
+            .collect();
+
+        // The Kubernetes bullet should appear in the top 2 despite competing
+        // with two Rust bullets, because diversity discounts the second Rust bullet.
+        assert!(
+            bullets.iter().any(|b| b.contains("Kubernetes")),
+            "MMR should surface the Kubernetes bullet: {bullets:?}"
+        );
     }
 
     fn make_job(raw_text: &str, skills: &[&str]) -> JobDescription {
