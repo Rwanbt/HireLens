@@ -140,7 +140,9 @@ fn sorted(values: HashSet<String>) -> Vec<String> {
 /// Total core ATS sections scored (skills, experience, education).
 const CORE_SECTIONS: f32 = 3.0;
 
-/// Blend weights for a tech job (Σ = 1). Config wiring is P4 (RFC §13).
+/// Blend weights for a tech job (Σ = 1). Kept as centralised constants on
+/// purpose — runtime config of these is deferred until an annotated eval set
+/// exists to tune against (see ADR-0008, "Alternatives rejetées").
 const W_SKILL: f32 = 0.45;
 const W_KEYWORD: f32 = 0.15;
 const W_LEXICAL: f32 = 0.40;

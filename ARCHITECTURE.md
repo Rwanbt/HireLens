@@ -64,14 +64,18 @@ Input
         ▼
    parser::parse_cv() + parser::parse_job()
         │
+        ├─ (si offline) core::skills::extract_local_skills() — dictionnaire, zéro LLM
         ▼ (si !offline)
    LlmProvider::extract_skills() → JSON uniquement
         │
         ▼
-   core::ats::compute_audit() — Rust pur, zéro LLM
+   core::ats::compute_audit() — Rust pur, zéro LLM (blend MatchSignals)
         │
         ▼ (si adapt)
-   LlmProvider::generate_adaptation() → JSON uniquement
+   ┌─ (si offline) core::offline_match::run() → OfflineMatchResult
+   │                 sélection par index, ZÉRO génération (ADR-0008)
+   │                 pipeline mappe → AdaptationResponse
+   └─ (si !offline) LlmProvider::generate_adaptation() → JSON uniquement
         │
         ▼
    ╔═══════════════════════════════════════╗
@@ -103,12 +107,16 @@ src/
 │   ├── provider.rs  trait LlmProvider + types (pas de deps montantes)
 │   ├── router.rs    LlmRouter — dépend de llm/*providers + auth/
 │   └── *provider    Implémentations — dépend de provider.rs uniquement
-├── core/            Logique métier pure — ZÉRO dépendance sur gui/ ou cli/
+├── core/            Logique métier pure — ZÉRO dépendance sur gui/, cli/ ou llm/
 │   ├── mod.rs       Types Cv, Experience, JobDescription
-│   ├── ats.rs       compute_audit() — pur, testable sans réseau
-│   ├── skills.rs    normalize_skill(), skill_set()
+│   ├── ats.rs       compute_audit() + MatchSignals/blend — pur, testable sans réseau
+│   ├── skills.rs    dico par SkillCategory, alias, ambigus, négation, skill_set()
+│   ├── matching.rs  keyword extraction + weighted_requirements (offre pondérée)
+│   ├── similarity.rs lexical_similarity (overlap TF + saturation)
+│   ├── text.rs      tokenizers (mots + state-machine), stopwords, folding
+│   ├── offline_match.rs run() — matcher déterministe sans IA (ADR-0008), hors LlmProvider
 │   ├── validation.rs validate_adaptation() — FRONTIÈRE CRITIQUE
-│   └── pipeline.rs  Orchestration — dépend de llm/ + core/*
+│   └── pipeline.rs  Orchestration — bifurque offline/LLM, mappe DTOs (seul pont core↔llm)
 ├── parser/          Markdown/YAML → Cv — dépend de core/
 ├── export/          Cv → Markdown/PDF — dépend de core/
 ├── auth/            OAuth2 PKCE Google — dépend de rien de core/
