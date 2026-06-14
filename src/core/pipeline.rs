@@ -4,10 +4,14 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::core::ats::{compute_audit, merge_skills};
+use crate::core::offline_match::OfflineMatchResult;
 use crate::core::validation::{diff_markdown, validate_adaptation};
-use crate::core::{AuditReport, JobDescription};
+use crate::core::{AuditReport, Cv, JobDescription};
 use crate::export::render_cv;
-use crate::llm::{AdaptationRequest, AdaptationResponse, ExtractSkillsRequest, LlmRouter};
+use crate::llm::{
+    AdaptationRequest, AdaptationResponse, ExtractSkillsRequest, ExtractSkillsResponse, LlmRouter,
+    SelectedBullet,
+};
 use crate::parser::{parse_cv_file, parse_cv_markdown, parse_job_file, parse_job_text};
 use crate::utils::cache::Cache;
 
@@ -147,11 +151,7 @@ impl Pipeline {
         let job_key = cache.key("extract_job_web", &[], job_text, provider)?;
 
         let extracted_cv = if options.offline {
-            crate::llm::offline_extract_skills(ExtractSkillsRequest {
-                source_name: "CV".to_owned(),
-                text: cv_text.to_owned(),
-            })
-            .await?
+            offline_extract_skills(cv_text)
         } else if options.use_cache {
             cache
                 .get_or_insert_json(&cv_key, || async {
@@ -173,11 +173,7 @@ impl Pipeline {
         };
 
         let extracted_job = if options.offline {
-            crate::llm::offline_extract_skills(ExtractSkillsRequest {
-                source_name: "job description".to_owned(),
-                text: job_text.to_owned(),
-            })
-            .await?
+            offline_extract_skills(job_text)
         } else if options.use_cache {
             cache
                 .get_or_insert_json(&job_key, || async {
@@ -212,6 +208,10 @@ impl Pipeline {
         job_text: &str,
         options: PipelineOptions,
     ) -> Result<AdaptationResponse> {
+        if options.offline {
+            return Ok(offline_adaptation(cv, job, allowed_skills));
+        }
+
         let cache = Cache::configured();
         let body = serde_json::to_string(&(cv, job, &allowed_skills))?;
         let combined = format!("{cv_text}{job_text}");
@@ -227,9 +227,7 @@ impl Pipeline {
             allowed_skills,
         };
 
-        if options.offline {
-            crate::llm::offline_adaptation(request).await
-        } else if options.use_cache {
+        if options.use_cache {
             cache
                 .get_or_insert_json(&key, || async {
                     self.llm.generate_adaptation(request.clone()).await
@@ -255,11 +253,7 @@ impl Pipeline {
         let job_key = cache.key("extract_job", &[cv_path, job_path], &job.raw_text, provider)?;
 
         let extracted_cv = if options.offline {
-            crate::llm::offline_extract_skills(ExtractSkillsRequest {
-                source_name: "CV".to_owned(),
-                text: cv_text,
-            })
-            .await?
+            offline_extract_skills(&cv_text)
         } else if options.use_cache {
             cache
                 .get_or_insert_json(&cv_key, || async {
@@ -281,11 +275,7 @@ impl Pipeline {
         };
 
         let extracted_job = if options.offline {
-            crate::llm::offline_extract_skills(ExtractSkillsRequest {
-                source_name: "job description".to_owned(),
-                text: job.raw_text.clone(),
-            })
-            .await?
+            offline_extract_skills(&job.raw_text)
         } else if options.use_cache {
             cache
                 .get_or_insert_json(&job_key, || async {
@@ -320,6 +310,10 @@ impl Pipeline {
         job_path: &Path,
         options: PipelineOptions,
     ) -> Result<AdaptationResponse> {
+        if options.offline {
+            return Ok(offline_adaptation(cv, job, allowed_skills));
+        }
+
         let cache = Cache::configured();
         let body = serde_json::to_string(&(cv, job, &allowed_skills))?;
         let key = cache.key(
@@ -334,9 +328,7 @@ impl Pipeline {
             allowed_skills,
         };
 
-        if options.offline {
-            crate::llm::offline_adaptation(request).await
-        } else if options.use_cache {
+        if options.use_cache {
             cache
                 .get_or_insert_json(&key, || async {
                     self.llm.generate_adaptation(request.clone()).await
@@ -345,5 +337,42 @@ impl Pipeline {
         } else {
             self.llm.generate_adaptation(request).await
         }
+    }
+}
+
+// ──────────────────────────────────────────────────────────────
+// Offline bridge — the offline matcher lives in `core` and returns its own
+// structs; here is the only place those are mapped onto the LLM-shaped DTOs.
+// `core` never depends on `llm`; the dependency direction stays UI/pipeline →
+// core, never the reverse.
+// ──────────────────────────────────────────────────────────────
+
+fn offline_extract_skills(text: &str) -> ExtractSkillsResponse {
+    ExtractSkillsResponse {
+        skills: crate::core::skills::extract_local_skills(text)
+            .into_iter()
+            .collect(),
+    }
+}
+
+fn offline_adaptation(
+    cv: &Cv,
+    job: &JobDescription,
+    allowed_skills: Vec<String>,
+) -> AdaptationResponse {
+    map_offline_result(crate::core::offline_match::run(cv, job, &allowed_skills))
+}
+
+fn map_offline_result(result: OfflineMatchResult) -> AdaptationResponse {
+    AdaptationResponse {
+        prioritized_skills: result.prioritized_skills,
+        selected_bullets: result
+            .selected_bullets
+            .into_iter()
+            .map(|bullet| SelectedBullet {
+                experience_id: bullet.experience_id,
+                bullet: bullet.bullet,
+            })
+            .collect(),
     }
 }

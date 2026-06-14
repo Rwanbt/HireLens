@@ -7,150 +7,205 @@ use serde::Deserialize;
 
 use crate::core::text::fold_accents;
 
-const KNOWN_SKILLS: &[&str] = &[
-    // Languages
-    "rust",
-    "python",
-    "typescript",
-    "javascript",
-    "java",
-    "c++",
-    "c#",
-    "c",
-    "go",
-    "php",
-    "ruby",
-    "swift",
-    "kotlin",
-    "dart",
-    "scala",
-    "elixir",
-    "haskell",
-    "r",
-    "matlab",
-    "perl",
-    "lua",
-    "zig",
-    // Web frameworks
-    "react",
-    "angular",
-    "vue",
-    "next.js",
-    "nuxt",
-    "svelte",
-    "nestjs",
-    "express",
-    "fastapi",
-    "django",
-    "flask",
-    "spring",
-    "rails",
-    "laravel",
-    "asp.net",
-    ".net",
-    "blazor",
-    "htmx",
-    // Databases
-    "sql",
-    "postgresql",
-    "mysql",
-    "sqlite",
-    "mariadb",
-    "mongodb",
-    "elasticsearch",
-    "cassandra",
-    "dynamodb",
-    "redis",
-    "neo4j",
-    "cockroachdb",
-    "supabase",
-    "firebase",
-    // Cloud
-    "aws",
-    "azure",
-    "gcp",
-    "cloudflare",
-    "vercel",
-    "heroku",
-    "digitalocean",
-    "s3",
-    "ec2",
-    "lambda",
-    "ecs",
-    "gke",
-    "aks",
-    "eks",
-    // DevOps / infra
-    "docker",
-    "kubernetes",
-    "terraform",
-    "ansible",
-    "helm",
-    "argocd",
-    "gitlab ci",
-    "github actions",
-    "circleci",
-    "jenkins",
-    "prometheus",
-    "grafana",
-    "datadog",
-    "nginx",
-    "linux",
-    "ci/cd",
-    // Data / ML
-    "machine learning",
-    "deep learning",
-    "nlp",
-    "llm",
-    "pytorch",
-    "tensorflow",
-    "keras",
-    "scikit-learn",
-    "pandas",
-    "numpy",
-    "spark",
-    "kafka",
-    "airflow",
-    "dbt",
-    "looker",
-    "tableau",
-    "power bi",
-    // Rust ecosystem
-    "tokio",
-    "reqwest",
-    "serde",
-    "axum",
-    "actix",
-    "wasm",
-    "clap",
-    // Architecture / protocols
-    "rest",
-    "graphql",
-    "grpc",
-    "websockets",
-    "oauth",
-    "jwt",
-    "openapi",
-    "microservices",
-    "event-driven",
-    "cqrs",
-    "ddd",
-    // Practices / soft
-    "agile",
-    "scrum",
-    "kanban",
-    "tdd",
-    "bdd",
-    "devex",
-    "sre",
-    // Tools
-    "git",
-    "github",
-    "gitlab",
-    "jira",
-    "figma",
-    "postman",
+/// Skill categories (RFC §5.4). Declaration order is the deterministic tie-break
+/// priority used when two skills carry the same requirement weight (`Ord`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum SkillCategory {
+    Language,
+    Framework,
+    Database,
+    Cloud,
+    DevOps,
+    Data,
+    Library,
+    Architecture,
+    Practice,
+    Tool,
+    /// Unknown / alias-only token with no declared category.
+    Other,
+}
+
+/// The canonical dictionary, grouped by category. This is the single source of
+/// truth for both the skill list and the category of each skill (no duplicated
+/// list elsewhere).
+const SKILL_CATEGORIES: &[(SkillCategory, &[&str])] = &[
+    (
+        SkillCategory::Language,
+        &[
+            "rust",
+            "python",
+            "typescript",
+            "javascript",
+            "java",
+            "c++",
+            "c#",
+            "c",
+            "go",
+            "php",
+            "ruby",
+            "swift",
+            "kotlin",
+            "dart",
+            "scala",
+            "elixir",
+            "haskell",
+            "r",
+            "matlab",
+            "perl",
+            "lua",
+            "zig",
+        ],
+    ),
+    (
+        SkillCategory::Framework,
+        &[
+            "react", "angular", "vue", "next.js", "nuxt", "svelte", "nestjs", "express", "fastapi",
+            "django", "flask", "spring", "rails", "laravel", "asp.net", ".net", "blazor", "htmx",
+        ],
+    ),
+    (
+        SkillCategory::Database,
+        &[
+            "sql",
+            "postgresql",
+            "mysql",
+            "sqlite",
+            "mariadb",
+            "mongodb",
+            "elasticsearch",
+            "cassandra",
+            "dynamodb",
+            "redis",
+            "neo4j",
+            "cockroachdb",
+            "supabase",
+            "firebase",
+        ],
+    ),
+    (
+        SkillCategory::Cloud,
+        &[
+            "aws",
+            "azure",
+            "gcp",
+            "cloudflare",
+            "vercel",
+            "heroku",
+            "digitalocean",
+            "s3",
+            "ec2",
+            "lambda",
+            "ecs",
+            "gke",
+            "aks",
+            "eks",
+        ],
+    ),
+    (
+        SkillCategory::DevOps,
+        &[
+            "docker",
+            "kubernetes",
+            "terraform",
+            "ansible",
+            "helm",
+            "argocd",
+            "gitlab ci",
+            "github actions",
+            "circleci",
+            "jenkins",
+            "prometheus",
+            "grafana",
+            "datadog",
+            "nginx",
+            "linux",
+            "ci/cd",
+        ],
+    ),
+    (
+        SkillCategory::Data,
+        &[
+            "machine learning",
+            "deep learning",
+            "nlp",
+            "llm",
+            "pytorch",
+            "tensorflow",
+            "keras",
+            "scikit-learn",
+            "pandas",
+            "numpy",
+            "spark",
+            "kafka",
+            "airflow",
+            "dbt",
+            "looker",
+            "tableau",
+            "power bi",
+        ],
+    ),
+    (
+        SkillCategory::Library,
+        &["tokio", "reqwest", "serde", "axum", "actix", "wasm", "clap"],
+    ),
+    (
+        SkillCategory::Architecture,
+        &[
+            "rest",
+            "graphql",
+            "grpc",
+            "websockets",
+            "oauth",
+            "jwt",
+            "openapi",
+            "microservices",
+            "event-driven",
+            "cqrs",
+            "ddd",
+        ],
+    ),
+    (
+        SkillCategory::Practice,
+        &["agile", "scrum", "kanban", "tdd", "bdd", "devex", "sre"],
+    ),
+    (
+        SkillCategory::Tool,
+        &["git", "github", "gitlab", "jira", "figma", "postman"],
+    ),
 ];
+
+/// Flat list of every canonical skill, derived once from `SKILL_CATEGORIES`.
+fn known_skills() -> &'static [&'static str] {
+    static FLAT: OnceLock<Vec<&'static str>> = OnceLock::new();
+    FLAT.get_or_init(|| {
+        SKILL_CATEGORIES
+            .iter()
+            .flat_map(|(_, skills)| skills.iter().copied())
+            .collect()
+    })
+}
+
+fn category_map() -> &'static HashMap<&'static str, SkillCategory> {
+    static MAP: OnceLock<HashMap<&'static str, SkillCategory>> = OnceLock::new();
+    MAP.get_or_init(|| {
+        let mut map = HashMap::new();
+        for (category, skills) in SKILL_CATEGORIES {
+            for skill in *skills {
+                map.insert(*skill, *category);
+            }
+        }
+        map
+    })
+}
+
+/// Category of a skill, or `Other` if it is unknown / alias-only.
+pub(crate) fn skill_category(skill: &str) -> SkillCategory {
+    let normalized = normalize_skill(skill);
+    category_map()
+        .get(normalized.as_str())
+        .copied()
+        .unwrap_or(SkillCategory::Other)
+}
 
 /// Skills whose surface form is a common everyday word or single letter, so a
 /// bare lowercase mention is too weak to count (RFC §5.4). They only count when
@@ -223,7 +278,7 @@ struct SkillPattern {
 fn skill_patterns() -> &'static [SkillPattern] {
     static PATTERNS: OnceLock<Vec<SkillPattern>> = OnceLock::new();
     PATTERNS.get_or_init(|| {
-        let mut patterns: Vec<SkillPattern> = KNOWN_SKILLS
+        let mut patterns: Vec<SkillPattern> = known_skills()
             .iter()
             .map(|skill| build_pattern(skill, skill))
             .collect();
@@ -289,7 +344,7 @@ pub(crate) fn skill_words() -> &'static HashSet<String> {
     static SET: OnceLock<HashSet<String>> = OnceLock::new();
     SET.get_or_init(|| {
         let mut set = HashSet::new();
-        for skill in KNOWN_SKILLS {
+        for skill in known_skills() {
             set.extend(crate::core::text::tokenize_words(skill));
         }
         set

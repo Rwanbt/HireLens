@@ -2,9 +2,7 @@ use anyhow::{anyhow, Context, Result};
 use reqwest::Client;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-use crate::llm::{
-    AdaptationRequest, AdaptationResponse, ExtractSkillsRequest, ExtractSkillsResponse,
-};
+use crate::llm::{AdaptationRequest, ExtractSkillsRequest};
 
 const SYSTEM_PROMPT: &str = r#"You are an ATS and CV analysis assistant.
 Return strict JSON only. Do not include markdown, prose, or explanations.
@@ -108,38 +106,6 @@ where
     T: DeserializeOwned,
 {
     serde_json::from_str(content).with_context(|| "LLM returned invalid JSON")
-}
-
-pub async fn offline_extract_skills(
-    request: ExtractSkillsRequest,
-) -> Result<ExtractSkillsResponse> {
-    Ok(ExtractSkillsResponse {
-        skills: crate::core::skills::extract_local_skills(&request.text)
-            .into_iter()
-            .collect(),
-    })
-}
-
-pub async fn offline_adaptation(request: AdaptationRequest) -> Result<AdaptationResponse> {
-    let selected_bullets = request
-        .cv
-        .experience
-        .iter()
-        .flat_map(|experience| {
-            experience
-                .bullets
-                .iter()
-                .map(move |bullet| super::provider::SelectedBullet {
-                    experience_id: experience.id.clone(),
-                    bullet: bullet.clone(),
-                })
-        })
-        .collect();
-
-    Ok(AdaptationResponse {
-        prioritized_skills: request.allowed_skills,
-        selected_bullets,
-    })
 }
 
 #[cfg(test)]

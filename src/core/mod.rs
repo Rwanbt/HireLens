@@ -1,6 +1,7 @@
 pub mod ats;
 pub mod diff;
 pub mod matching;
+pub mod offline_match;
 pub mod pipeline;
 pub mod skills;
 pub mod text;

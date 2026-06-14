@@ -97,6 +97,124 @@ pub fn keyword_coverage(job_text: &str, cv_text: &str) -> f32 {
     present as f32 / keywords.len() as f32
 }
 
+/// Multiplier applied when a required skill also appears in the job title.
+const TITLE_BOOST: f32 = 1.5;
+/// Multiplier when a "required / must-have" cue sits near the skill mention.
+const REQUIRED_BOOST: f32 = 1.4;
+/// Multiplier when a "nice-to-have" cue sits near the skill mention.
+const NICE_TO_HAVE_FACTOR: f32 = 0.6;
+/// Frequency saturation constant for `1 - e^(-n/k)` (diminishing returns).
+const FREQ_SATURATION_K: f32 = 2.0;
+/// Occurrence cap before saturation, so spam cannot inflate a requirement.
+const MAX_REQ_OCCURRENCES: usize = 5;
+
+/// "Required / must-have" cues, FR+EN, accent-folded lowercase.
+const REQUIRED_CUES: &[&str] = &[
+    "required",
+    "must",
+    "mandatory",
+    "requis",
+    "obligatoire",
+    "indispensable",
+    "essentiel",
+    "exige",
+];
+/// "Nice-to-have / optional" cues, FR+EN, accent-folded lowercase.
+const NICE_TO_HAVE_CUES: &[&str] = &[
+    "nice-to-have",
+    "nice to have",
+    "bonus",
+    "optional",
+    "optionnel",
+    "souhaite",
+    "apprecie",
+    "preferred",
+    "un plus",
+];
+
+/// A job requirement with its computed weight.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RequirementWeight {
+    pub skill: String,
+    pub weight: f32,
+}
+
+/// Weight every job requirement: `saturate(frequency) × title_boost ×
+/// section_boost` (RFC §5.4). Pure function. Returned sorted by weight
+/// descending (alphabetical tie-break) for determinism.
+pub fn weighted_requirements(job: &JobDescription) -> Vec<RequirementWeight> {
+    let title = fold_lower(job.title.as_deref().unwrap_or_default());
+    let haystack = fold_lower(&job.raw_text);
+
+    let mut weights: Vec<RequirementWeight> = count_skill_occurrences(job)
+        .into_iter()
+        .filter(|signal| !signal.skill.is_empty())
+        .map(|signal| {
+            let frequency = saturate(signal.occurrences);
+            let title_boost = if title.contains(&signal.skill) {
+                TITLE_BOOST
+            } else {
+                1.0
+            };
+            let section_boost = section_boost(&haystack, &signal.skill);
+            RequirementWeight {
+                weight: frequency * title_boost * section_boost,
+                skill: signal.skill,
+            }
+        })
+        .collect();
+
+    weights.sort_by(|a, b| {
+        b.weight
+            .partial_cmp(&a.weight)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a.skill.cmp(&b.skill))
+    });
+    weights
+}
+
+fn fold_lower(text: &str) -> String {
+    crate::core::text::fold_accents(&text.to_lowercase())
+}
+
+/// `1 - e^(-n/k)`: 0 at n=0, rising with diminishing returns, capped at
+/// `MAX_REQ_OCCURRENCES`. A listed requirement counts at least once.
+fn saturate(occurrences: usize) -> f32 {
+    let capped = occurrences.clamp(1, MAX_REQ_OCCURRENCES) as f32;
+    1.0 - (-capped / FREQ_SATURATION_K).exp()
+}
+
+/// Inspect the clause holding the skill's first mention for a required /
+/// optional cue. Scoping to the clause (not a fixed char window) stops a cue
+/// from one sentence leaking into an adjacent skill's score. `haystack` and
+/// `skill` are both accent-folded lowercase.
+fn section_boost(haystack: &str, skill: &str) -> f32 {
+    let clause = clause_containing(haystack, skill).unwrap_or(haystack);
+    if REQUIRED_CUES.iter().any(|cue| clause.contains(cue)) {
+        REQUIRED_BOOST
+    } else if NICE_TO_HAVE_CUES.iter().any(|cue| clause.contains(cue)) {
+        NICE_TO_HAVE_FACTOR
+    } else {
+        1.0
+    }
+}
+
+/// The clause (between `.!?;` or newlines) containing the skill's first mention.
+fn clause_containing<'a>(haystack: &'a str, skill: &str) -> Option<&'a str> {
+    const BOUNDARIES: [char; 5] = ['.', '!', '?', ';', '\n'];
+    let pos = haystack.find(skill)?;
+    let start = haystack[..pos]
+        .rfind(BOUNDARIES)
+        .map(|index| index + 1)
+        .unwrap_or(0);
+    let after = pos + skill.len();
+    let end = haystack[after..]
+        .find(BOUNDARIES)
+        .map(|index| after + index)
+        .unwrap_or(haystack.len());
+    Some(&haystack[start..end])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -185,5 +303,44 @@ mod tests {
     #[test]
     fn keyword_coverage_empty_job_is_full() {
         assert_eq!(keyword_coverage("", "anything"), 1.0);
+    }
+
+    fn weight_of(weights: &[RequirementWeight], skill: &str) -> f32 {
+        weights
+            .iter()
+            .find(|requirement| requirement.skill == skill)
+            .unwrap_or_else(|| panic!("no weight for {skill}"))
+            .weight
+    }
+
+    #[test]
+    fn weight_rises_with_frequency() {
+        let job = make_job("docker docker docker rust", vec!["docker", "rust"]);
+        let weights = weighted_requirements(&job);
+        assert!(weight_of(&weights, "docker") > weight_of(&weights, "rust"));
+        // sorted descending → the most frequent requirement leads.
+        assert_eq!(weights[0].skill, "docker");
+    }
+
+    #[test]
+    fn title_mention_boosts_weight() {
+        let job = JobDescription {
+            title: Some("Senior Rust Engineer".into()),
+            raw_text: "rust python".into(),
+            skills: vec!["rust".into(), "python".into()],
+        };
+        let weights = weighted_requirements(&job);
+        // equal frequency, but rust is in the title → ranked first.
+        assert!(weight_of(&weights, "rust") > weight_of(&weights, "python"));
+    }
+
+    #[test]
+    fn required_cue_outweighs_nice_to_have() {
+        let job = make_job(
+            "Python is required. Docker is a nice-to-have bonus.",
+            vec!["python", "docker"],
+        );
+        let weights = weighted_requirements(&job);
+        assert!(weight_of(&weights, "python") > weight_of(&weights, "docker"));
     }
 }

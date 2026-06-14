@@ -1,6 +1,6 @@
 # AI_SUMMARY — core
 
-> **Auto-generated 2026-06-14 18:45** — do not edit manually.
+> **Auto-generated 2026-06-14 18:54** — do not edit manually.
 > Source: `tools/ai_docs/generate_ai_summary.py`
 > For purpose, thread model and constraints, read `AI_CONTEXT.md`.
 
@@ -22,13 +22,14 @@ Business logic of HireLens: ATS skill scoring, skill normalization, adaptation v
 |------|-----|--|
 | `ats.rs` | 167 | |
 | `diff.rs` | 56 | |
-| `matching.rs` | 141 | |
-| `mod.rs` | 37 | |
-| `pipeline.rs` | 303 | |
-| `skills.rs` | 396 | |
+| `matching.rs` | 260 | |
+| `mod.rs` | 38 | |
+| `offline_match.rs` | 119 | |
+| `pipeline.rs` | 316 | |
+| `skills.rs` | 417 | |
 | `text.rs` | 73 | |
 | `validation.rs` | 142 | |
-| **Total** | **1315** | |
+| **Total** | **1588** | |
 
 ## Rust API
 - `AdaptedCv` (struct)
@@ -39,8 +40,11 @@ Business logic of HireLens: ATS skill scoring, skill normalization, adaptation v
 - `Education` (struct)
 - `Experience` (struct)
 - `JobDescription` (struct)
+- `OfflineBullet` (struct)
+- `OfflineMatchResult` (struct)
 - `Pipeline` (struct)
 - `PipelineOptions` (struct)
+- `RequirementWeight` (struct)
 - `ScoreReason` (struct)
 - `SkillSignal` (struct)
 - `DiffKind` (enum)
@@ -58,6 +62,8 @@ Business logic of HireLens: ATS skill scoring, skill normalization, adaptation v
 - `keyword_coverage()`
 - `merge_skills()`
 - `normalize_skill()`
+- `run()`
 - `skill_set()`
 - `tokenize_words()`
 - `validate_adaptation()`
+- `weighted_requirements()`
