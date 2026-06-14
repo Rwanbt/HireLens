@@ -452,10 +452,12 @@ fn render_audit_panel(ui: &mut Ui, report: &AuditReport) {
             ui.set_width(160.0);
             render_gauge(ui, report.score.score);
             ui.add_space(GAP_MD);
-            // P6.3 — ATS score breakdown across the three computed dimensions.
+            // ATS score breakdown across the four blended dimensions (RFC §5.5).
             render_sub_score(ui, "Compétences", report.score.skill_match_ratio);
             ui.add_space(GAP_SM);
             render_sub_score(ui, "Mots-clés", report.score.keyword_score);
+            ui.add_space(GAP_SM);
+            render_sub_score(ui, "Similarité", report.score.lexical_score);
             ui.add_space(GAP_SM);
             render_sub_score(ui, "Structure", report.score.structure_score);
         });
