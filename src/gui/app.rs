@@ -52,6 +52,14 @@ pub(crate) enum FileTarget {
     Job,
 }
 
+/// Active input tab in the narrow (stacked) layout.
+#[derive(Default, PartialEq, Clone, Copy)]
+pub(crate) enum Tab {
+    #[default]
+    Cv,
+    Job,
+}
+
 // ──────────────────────────────────────────────────────────────
 // App state
 // ──────────────────────────────────────────────────────────────
@@ -93,6 +101,8 @@ pub struct HireLensApp {
     pub(crate) tried_without_input: bool,
     /// 6.8: stable export feedback shown for 4 seconds
     pub(crate) export_feedback: Option<(String, std::time::Instant)>,
+    /// P3: selected input tab when the window is too narrow for side-by-side panels.
+    pub(crate) active_tab: Tab,
 }
 
 impl Default for HireLensApp {
@@ -119,6 +129,7 @@ impl Default for HireLensApp {
             ping_status: None,
             tried_without_input: false,
             export_feedback: None,
+            active_tab: Tab::Cv,
         }
     }
 }

@@ -1,6 +1,8 @@
 use eframe::egui::{self, Align2, Color32, FontId, Pos2, Sense, Stroke, Ui, Vec2};
 
-use crate::gui::{COL_GREEN, COL_MUTED, COL_ORANGE, COL_RED, COL_YELLOW};
+use crate::gui::theme::{
+    STATUS_ERROR, STATUS_ORANGE, STATUS_SUCCESS, STATUS_WARNING, TEXT_SECONDARY,
+};
 
 pub(crate) fn render_gauge(ui: &mut Ui, score: u8) {
     let size = Vec2::splat(130.0);
@@ -44,18 +46,18 @@ pub(crate) fn render_gauge(ui: &mut Ui, score: u8) {
         Align2::CENTER_CENTER,
         "/ 100",
         FontId::proportional(11.0),
-        COL_MUTED,
+        TEXT_SECONDARY,
     );
 }
 
 pub(crate) fn score_color(score: u8) -> Color32 {
     if score >= 80 {
-        COL_GREEN
+        STATUS_SUCCESS
     } else if score >= 60 {
-        COL_YELLOW
+        STATUS_WARNING
     } else if score >= 40 {
-        COL_ORANGE
+        STATUS_ORANGE
     } else {
-        COL_RED
+        STATUS_ERROR
     }
 }

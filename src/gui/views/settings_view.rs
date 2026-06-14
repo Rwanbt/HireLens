@@ -3,7 +3,7 @@ use eframe::egui::{self, RichText, TextEdit, Ui};
 use crate::auth::load_token;
 use crate::gui::app::{HireLensApp, Provider};
 use crate::gui::settings::GuiSettings;
-use crate::gui::{COL_GREEN, COL_MUTED, COL_RED, COL_YELLOW};
+use crate::gui::theme::{STATUS_ERROR, STATUS_SUCCESS, STATUS_WARNING, TEXT_SECONDARY};
 
 pub(crate) fn render_settings(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Context) {
     // ── Header ──
@@ -22,9 +22,9 @@ pub(crate) fn render_settings(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Co
     // ── Status message ──
     if let Some(status) = &app.settings_status.clone() {
         let color = if status.starts_with('✅') {
-            COL_GREEN
+            STATUS_SUCCESS
         } else {
-            COL_RED
+            STATUS_ERROR
         };
         ui.label(RichText::new(status).size(12.0).color(color));
         ui.add_space(6.0);
@@ -59,11 +59,15 @@ fn render_openai_section(app: &mut HireLensApp, ui: &mut Ui, active: Provider) {
                 if has_key {
                     ui.label(
                         RichText::new("✅ Clé configurée")
-                            .color(COL_GREEN)
+                            .color(STATUS_SUCCESS)
                             .size(12.0),
                     );
                 } else {
-                    ui.label(RichText::new("❌ Aucune clé").color(COL_RED).size(12.0));
+                    ui.label(
+                        RichText::new("❌ Aucune clé")
+                            .color(STATUS_ERROR)
+                            .size(12.0),
+                    );
                 }
             });
 
@@ -72,7 +76,7 @@ fn render_openai_section(app: &mut HireLensApp, ui: &mut Ui, active: Provider) {
             ui.horizontal(|ui| {
                 ui.label(
                     RichText::new("Nouvelle clé API :")
-                        .color(COL_MUTED)
+                        .color(TEXT_SECONDARY)
                         .size(12.0),
                 );
             });
@@ -117,7 +121,7 @@ fn render_openai_section(app: &mut HireLensApp, ui: &mut Ui, active: Provider) {
 
                 if has_key
                     && ui
-                        .small_button(RichText::new("🗑 Effacer").size(12.0).color(COL_RED))
+                        .small_button(RichText::new("🗑 Effacer").size(12.0).color(STATUS_ERROR))
                         .clicked()
                 {
                     GuiSettings::delete_openai_key();
@@ -152,17 +156,17 @@ fn render_gemini_section(
                     } else {
                         "⚠️ Token sur le point d'expirer".to_owned()
                     };
-                    ui.label(RichText::new(label).color(COL_GREEN).size(12.0));
+                    ui.label(RichText::new(label).color(STATUS_SUCCESS).size(12.0));
                 }
                 Some(_) => {
                     ui.label(
                         RichText::new("⚠️ Token expiré — reconnectez-vous")
-                            .color(COL_YELLOW)
+                            .color(STATUS_WARNING)
                             .size(12.0),
                     );
                 }
                 None => {
-                    ui.label(RichText::new("❌ Non connecté").color(COL_RED).size(12.0));
+                    ui.label(RichText::new("❌ Non connecté").color(STATUS_ERROR).size(12.0));
                 }
             }
 
@@ -170,7 +174,7 @@ fn render_gemini_section(
 
             // Model
             ui.horizontal(|ui| {
-                ui.label(RichText::new("Modèle :").color(COL_MUTED).size(12.0));
+                ui.label(RichText::new("Modèle :").color(TEXT_SECONDARY).size(12.0));
                 egui::ComboBox::from_id_salt("gemini_model_combo")
                     .selected_text(&app.settings.gemini.model)
                     .width(200.0)
@@ -195,7 +199,7 @@ fn render_gemini_section(
 
             // Credentials (collapsible, for developer setup)
             egui::CollapsingHeader::new(
-                RichText::new("▸ Identifiants Google Cloud").size(12.0).color(COL_MUTED),
+                RichText::new("▸ Identifiants Google Cloud").size(12.0).color(TEXT_SECONDARY),
             )
             .default_open(app.settings.gemini.client_id.is_empty())
             .show(ui, |ui| {
@@ -204,12 +208,12 @@ fn render_gemini_section(
                         "Créez un projet Google Cloud → Identifiants → OAuth 2.0 → Application de bureau",
                     )
                     .size(11.0)
-                    .color(COL_MUTED),
+                    .color(TEXT_SECONDARY),
                 );
                 ui.add_space(4.0);
 
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new("Client ID :").size(12.0).color(COL_MUTED));
+                    ui.label(RichText::new("Client ID :").size(12.0).color(TEXT_SECONDARY));
                     if ui
                         .add(
                             TextEdit::singleline(&mut app.settings.gemini.client_id)
@@ -222,7 +226,7 @@ fn render_gemini_section(
                     }
                 });
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new("Client Secret :").size(12.0).color(COL_MUTED));
+                    ui.label(RichText::new("Client Secret :").size(12.0).color(TEXT_SECONDARY));
                     if ui
                         .add(
                             TextEdit::singleline(&mut app.settings.gemini.client_secret)
@@ -244,7 +248,7 @@ fn render_gemini_section(
                 if auth_in_progress {
                     ui.spinner();
                     ui.label(
-                        RichText::new("  Authentification en cours…").italics().size(12.0).color(COL_MUTED),
+                        RichText::new("  Authentification en cours…").italics().size(12.0).color(TEXT_SECONDARY),
                     );
                 } else {
                     let has_credentials = !app.settings.gemini.client_id.is_empty();
@@ -262,7 +266,7 @@ fn render_gemini_section(
                     if token.is_some() {
                         ui.add_space(4.0);
                         if ui
-                            .button(RichText::new("🔓  Déconnecter").size(12.0).color(COL_RED))
+                            .button(RichText::new("🔓  Déconnecter").size(12.0).color(STATUS_ERROR))
                             .clicked()
                         {
                             crate::auth::clear_token();
@@ -302,13 +306,25 @@ fn render_local_section(
             // Status badge
             match ping_status {
                 Some(true) => {
-                    ui.label(RichText::new("✅ En ligne").color(COL_GREEN).size(12.0));
+                    ui.label(
+                        RichText::new("✅ En ligne")
+                            .color(STATUS_SUCCESS)
+                            .size(12.0),
+                    );
                 }
                 Some(false) => {
-                    ui.label(RichText::new("❌ Hors ligne").color(COL_RED).size(12.0));
+                    ui.label(
+                        RichText::new("❌ Hors ligne")
+                            .color(STATUS_ERROR)
+                            .size(12.0),
+                    );
                 }
                 None => {
-                    ui.label(RichText::new("● non testé").color(COL_MUTED).size(12.0));
+                    ui.label(
+                        RichText::new("● non testé")
+                            .color(TEXT_SECONDARY)
+                            .size(12.0),
+                    );
                 }
             }
 
@@ -316,7 +332,7 @@ fn render_local_section(
 
             // URL
             ui.horizontal(|ui| {
-                ui.label(RichText::new("URL :").size(12.0).color(COL_MUTED));
+                ui.label(RichText::new("URL :").size(12.0).color(TEXT_SECONDARY));
                 let changed = if is_ollama {
                     ui.add(
                         TextEdit::singleline(&mut app.settings.ollama_url)
@@ -340,7 +356,7 @@ fn render_local_section(
 
             // Model
             ui.horizontal(|ui| {
-                ui.label(RichText::new("Modèle :").size(12.0).color(COL_MUTED));
+                ui.label(RichText::new("Modèle :").size(12.0).color(TEXT_SECONDARY));
                 let changed = if is_ollama {
                     ui.add(
                         TextEdit::singleline(&mut app.settings.ollama_model)
@@ -371,7 +387,7 @@ fn render_local_section(
                         RichText::new("  Test en cours…")
                             .italics()
                             .size(12.0)
-                            .color(COL_MUTED),
+                            .color(TEXT_SECONDARY),
                     );
                 });
             } else if ui

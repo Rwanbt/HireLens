@@ -15,7 +15,7 @@ egui/eframe user interface for HireLens. Displays inputs, triggers operations, s
 ## Constraints
 - `update()` must never block — all I/O and async go via `std::thread::spawn()` + `mpsc::channel`
 - `ctx.request_repaint()` must be called in every spawned thread after `tx.send()`
-- Color constants live in `gui/mod.rs` (COL_GREEN, COL_RED, etc.) — never inline hex in views
+- Design tokens (colors, radii, spacing) live in `gui/theme.rs` — never inline hex or magic spacing in views
 - `state.rs` holds app state; `app.rs` orchestrates — keep them separate
 - Widgets in `widgets/` are reusable — check before creating a new one
 
@@ -48,7 +48,8 @@ pub(crate) fn start_operation(&mut self, ctx: &egui::Context) {
 
 ## Hot files
 - `app.rs` — HireLensApp state + all start_* methods + poll_results
-- `mod.rs` — run(), color constants (COL_*)
+- `mod.rs` — run(), `custom_visuals()` (dark theme setup)
+- `theme.rs` — design tokens (colors, radii, spacing): single source of truth
 - `views/main_view.rs` — main rendering logic
 
 ## See also

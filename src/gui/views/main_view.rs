@@ -2,148 +2,228 @@ use eframe::egui::{self, Color32, RichText, ScrollArea, TextEdit, TextStyle, Ui,
 
 use crate::core::matching::SkillStatus;
 use crate::core::AuditReport;
-use crate::gui::app::{FileTarget, HireLensApp, Provider};
+use crate::gui::app::{FileTarget, HireLensApp, Provider, Tab};
 use crate::gui::state::{AdaptState, AuditState};
-use crate::gui::widgets::chips::{badge, error_line, skill_chip};
-use crate::gui::widgets::gauge::render_gauge;
-use crate::gui::{COL_BLUE, COL_GREEN, COL_MUTED, COL_RED, COL_YELLOW};
+use crate::gui::theme::{
+    ACCENT_PRIMARY, BG_CARD, BORDER_ACTIVE, BORDER_SUBTLE, GAP_LG, GAP_MD, GAP_SM, RADIUS_MD,
+    RADIUS_SM, STATUS_ERROR, STATUS_INFO, STATUS_SUCCESS, STATUS_WARNING, TEXT_MUTED, TEXT_PRIMARY,
+    TEXT_SECONDARY,
+};
+use crate::gui::widgets::chips::{error_line, skill_chip};
+use crate::gui::widgets::gauge::{render_gauge, score_color};
 
 pub(crate) fn render_header(app: &mut HireLensApp, ctx: &egui::Context) {
+    let frame = egui::Frame::none()
+        .fill(BG_CARD)
+        .inner_margin(egui::Margin::symmetric(16.0, 0.0))
+        .stroke(egui::Stroke::new(1.0, BORDER_SUBTLE));
+
     egui::TopBottomPanel::top("header")
-        .exact_height(42.0)
+        .exact_height(48.0)
+        .frame(frame)
         .show(ctx, |ui| {
             ui.horizontal_centered(|ui| {
-                ui.add_space(12.0);
-                ui.label(RichText::new("🔍  HireLens").size(20.0).strong());
-                ui.add_space(12.0);
-                badge(ui, "Anti-Hallucination", COL_BLUE);
-                badge(ui, "Multi-Provider", COL_BLUE);
-                badge(ui, "Offline Ready", COL_GREEN);
+                render_logo(ui);
 
+                // Right cluster: settings toggle (far right), provider status to its left.
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.add_space(12.0);
-                    let label = if app.show_settings {
-                        "✖ Fermer"
-                    } else {
-                        "⚙️"
-                    };
-                    if ui.button(RichText::new(label).size(13.0)).clicked() {
-                        if app.show_settings {
-                            app.settings.save();
-                        }
-                        app.show_settings = !app.show_settings;
-                        app.settings_status = None;
-                    }
+                    render_settings_button(app, ui);
+                    ui.add_space(GAP_LG);
+                    render_provider_status(ui, app);
                 });
             });
         });
 }
 
+/// Draws the HireLens "lens" mark as vector shapes (focus ring + center dot) so
+/// it renders identically regardless of the platform's font glyph coverage.
+fn render_logo(ui: &mut Ui) {
+    let (rect, _) = ui.allocate_exact_size(Vec2::splat(18.0), egui::Sense::hover());
+    let painter = ui.painter_at(rect);
+    let center = rect.center();
+    painter.circle_stroke(center, 7.0, egui::Stroke::new(2.0, ACCENT_PRIMARY));
+    painter.circle_filled(center, 2.5, ACCENT_PRIMARY);
+
+    ui.add_space(GAP_SM);
+    ui.label(
+        RichText::new("HireLens")
+            .size(19.0)
+            .strong()
+            .color(TEXT_PRIMARY),
+    );
+}
+
+/// Frameless settings toggle (tertiary action), kept on the right of the header.
+fn render_settings_button(app: &mut HireLensApp, ui: &mut Ui) {
+    let label = if app.show_settings {
+        "✖ Fermer"
+    } else {
+        "⚙️"
+    };
+    let button =
+        egui::Button::new(RichText::new(label).size(15.0).color(TEXT_SECONDARY)).frame(false);
+    if ui.add(button).clicked() {
+        if app.show_settings {
+            app.settings.save();
+        }
+        app.show_settings = !app.show_settings;
+        app.settings_status = None;
+    }
+}
+
+/// Live provider indicator: colored dot + label reflecting the active backend.
+fn render_provider_status(ui: &mut Ui, app: &HireLensApp) {
+    let (dot_color, label) = match app.provider {
+        Provider::Offline => (TEXT_MUTED, "Offline (sans IA)"),
+        Provider::Ollama => (STATUS_SUCCESS, "Ollama local"),
+        Provider::LmStudio => (STATUS_SUCCESS, "LM Studio local"),
+        Provider::OpenAi => (STATUS_INFO, "OpenAI"),
+        Provider::Gemini => (STATUS_INFO, "Gemini"),
+    };
+    // right-to-left layout: label added first sits rightmost, dot lands to its
+    // left → reads "● Label" left-to-right on screen.
+    ui.label(RichText::new(label).size(12.0).color(TEXT_SECONDARY));
+    ui.add_space(GAP_SM);
+    ui.label(RichText::new("●").size(10.0).color(dot_color));
+}
+
+/// Below this central-panel width the CV/Job inputs collapse into a tabbed view.
+const RESPONSIVE_BREAKPOINT: f32 = 800.0;
+
+const CV_HINT: &str = "Collez votre CV ici — Markdown ou YAML frontmatter\n\
+    (compétences, expériences, formation…)";
+
+const JOB_HINT: &str = "Collez l'offre d'emploi ici\n\
+    (intitulé du poste + description complète…)";
+
 pub(crate) fn render_inputs(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Context) {
-    let avail = ui.available_width();
-    let col_w = (avail - 14.0) / 2.0;
-
-    ui.horizontal_top(|ui| {
-        // ── CV ──
-        ui.vertical(|ui| {
-            ui.set_width(col_w);
-            ui.horizontal(|ui| {
-                ui.label(RichText::new("📄  Votre CV").strong());
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui
-                        .add_enabled(
-                            app.file_rx.is_none(),
-                            egui::Button::new("📂 Ouvrir fichier").small(),
-                        )
-                        .clicked()
-                    {
-                        app.start_open_file(FileTarget::Cv, ctx);
-                    }
-                });
-            });
-            ui.add_space(4.0);
-            ui.add(
-                TextEdit::multiline(&mut app.cv_text)
-                    .desired_width(col_w)
-                    .desired_rows(15)
-                    .hint_text(
-                        "Collez votre CV ici (Markdown ou texte)…\n\
-                        \n\
-                        Exemple avec frontmatter :\n\
-                        ---\n\
-                        name: Alice Martin\n\
-                        skills:\n\
-                          - Rust\n\
-                          - Docker\n\
-                        experience:\n\
-                          - id: exp-1\n\
-                            company: Acme Corp\n\
-                            role: Backend Engineer\n\
-                            bullets:\n\
-                              - Développé des microservices…\n\
-                        ---\n\
-                        \n\
-                        Ou format Markdown simple :\n\
-                        ## Skills\n\
-                        - Rust\n\
-                        ## Experience\n\
-                        ### Acme Corp\n\
-                        - Développé des microservices…",
-                    )
-                    .font(TextStyle::Monospace)
-                    .code_editor(),
-            );
+    if ui.available_width() > RESPONSIVE_BREAKPOINT {
+        let col_w = (ui.available_width() - GAP_MD) / 2.0;
+        ui.horizontal_top(|ui| {
+            render_cv_panel(app, ui, col_w, ctx);
+            ui.add_space(GAP_MD);
+            render_job_panel(app, ui, col_w, ctx);
         });
+    } else {
+        render_tab_nav(ui, app);
+        ui.add_space(GAP_SM);
+        let full_w = ui.available_width();
+        match app.active_tab {
+            Tab::Cv => render_cv_panel(app, ui, full_w, ctx),
+            Tab::Job => render_job_panel(app, ui, full_w, ctx),
+        }
+    }
+}
 
-        ui.add_space(14.0);
+/// Tab switcher shown only in the narrow (stacked) layout.
+fn render_tab_nav(ui: &mut Ui, app: &mut HireLensApp) {
+    ui.horizontal(|ui| {
+        if ui
+            .selectable_label(
+                app.active_tab == Tab::Cv,
+                RichText::new("📄  CV").size(14.0),
+            )
+            .clicked()
+        {
+            app.active_tab = Tab::Cv;
+        }
+        ui.add_space(GAP_SM);
+        if ui
+            .selectable_label(
+                app.active_tab == Tab::Job,
+                RichText::new("💼  Offre").size(14.0),
+            )
+            .clicked()
+        {
+            app.active_tab = Tab::Job;
+        }
+    });
+}
 
-        // ── Offre ──
-        ui.vertical(|ui| {
-            ui.set_width(col_w);
-            ui.horizontal(|ui| {
-                ui.label(RichText::new("💼  Offre d'emploi").strong());
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui
-                        .add_enabled(
-                            app.file_rx.is_none(),
-                            egui::Button::new("📂 Ouvrir fichier").small(),
-                        )
-                        .clicked()
-                    {
-                        app.start_open_file(FileTarget::Job, ctx);
-                    }
-                });
-            });
-            ui.add_space(4.0);
-            ui.add(
-                TextEdit::multiline(&mut app.job_text)
-                    .desired_width(col_w)
+fn render_cv_panel(app: &mut HireLensApp, ui: &mut Ui, col_w: f32, ctx: &egui::Context) {
+    ui.vertical(|ui| {
+        ui.set_width(col_w);
+        card_frame().show(ui, |ui| {
+            if panel_header(ui, "📄  Votre CV", app.file_rx.is_none()) {
+                app.start_open_file(FileTarget::Cv, ctx);
+            }
+            ui.add_space(GAP_SM);
+            let response = ui.add(
+                TextEdit::multiline(&mut app.cv_text)
+                    .desired_width(ui.available_width())
                     .desired_rows(15)
-                    .hint_text(
-                        "Collez l'offre d'emploi ici…\n\
-                        \n\
-                        Exemple :\n\
-                        Senior Backend Engineer\n\
-                        \n\
-                        Nous recherchons un ingénieur\n\
-                        Rust avec expérience Docker,\n\
-                        Kubernetes et CI/CD…",
-                    ),
+                    .hint_text(CV_HINT)
+                    .font(TextStyle::Monospace)
+                    .frame(false),
             );
+            focus_ring(ui, &response);
         });
     });
+}
+
+fn render_job_panel(app: &mut HireLensApp, ui: &mut Ui, col_w: f32, ctx: &egui::Context) {
+    ui.vertical(|ui| {
+        ui.set_width(col_w);
+        card_frame().show(ui, |ui| {
+            if panel_header(ui, "💼  Offre d'emploi", app.file_rx.is_none()) {
+                app.start_open_file(FileTarget::Job, ctx);
+            }
+            ui.add_space(GAP_SM);
+            let response = ui.add(
+                TextEdit::multiline(&mut app.job_text)
+                    .desired_width(ui.available_width())
+                    .desired_rows(15)
+                    .hint_text(JOB_HINT)
+                    .frame(false),
+            );
+            focus_ring(ui, &response);
+        });
+    });
+}
+
+/// Renders a panel title plus a right-aligned "Ouvrir fichier" button.
+/// Returns `true` on the frame the button is clicked.
+fn panel_header(ui: &mut Ui, title: &str, file_enabled: bool) -> bool {
+    let mut clicked = false;
+    ui.horizontal(|ui| {
+        ui.label(RichText::new(title).strong().color(TEXT_PRIMARY));
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            clicked = ui
+                .add_enabled(file_enabled, egui::Button::new("📂 Ouvrir fichier").small())
+                .clicked();
+        });
+    });
+    clicked
+}
+
+/// Shared card surface: filled rounded panel with a subtle border.
+fn card_frame() -> egui::Frame {
+    egui::Frame::none()
+        .fill(BG_CARD)
+        .rounding(egui::Rounding::same(RADIUS_MD))
+        .stroke(egui::Stroke::new(1.0, BORDER_SUBTLE))
+        .inner_margin(egui::Margin::same(GAP_MD))
+}
+
+/// Paints an accent focus ring around a just-focused input.
+fn focus_ring(ui: &Ui, response: &egui::Response) {
+    if response.has_focus() {
+        ui.painter().rect_stroke(
+            response.rect.expand(2.0),
+            egui::Rounding::same(RADIUS_SM),
+            egui::Stroke::new(1.5, BORDER_ACTIVE),
+        );
+    }
 }
 
 pub(crate) fn render_controls(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Context) {
     use crate::gui::state::{AdaptState, AuditState};
 
     ui.horizontal(|ui| {
-        ui.label(RichText::new("Provider :").color(COL_MUTED));
-
         // 6.3 — Gemini disabled when not configured
         let gemini_configured = !app.settings.gemini.client_id.is_empty();
         egui::ComboBox::from_id_salt("provider_combo")
-            .selected_text(app.provider.label())
+            .selected_text(RichText::new(app.provider.label()).color(TEXT_SECONDARY))
             .width(180.0)
             .show_ui(ui, |ui| {
                 for p in [
@@ -174,15 +254,21 @@ pub(crate) fn render_controls(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Co
             ui.label(
                 RichText::new("  Traitement en cours…")
                     .italics()
-                    .color(COL_MUTED),
+                    .color(TEXT_SECONDARY),
             );
         } else {
             let has_input = !app.cv_text.trim().is_empty() && !app.job_text.trim().is_empty();
 
             // 6.1 — always-enabled buttons; track first failed attempt
             let analyze_btn = ui.add(
-                egui::Button::new(RichText::new("🔍  Analyser").size(14.0))
-                    .min_size(Vec2::new(130.0, 32.0)),
+                egui::Button::new(
+                    RichText::new("🔍  Analyser")
+                        .size(13.0)
+                        .color(TEXT_SECONDARY),
+                )
+                .min_size(Vec2::new(120.0, 30.0))
+                .fill(Color32::TRANSPARENT)
+                .stroke(egui::Stroke::new(1.0, BORDER_SUBTLE)),
             );
             if analyze_btn.clicked() {
                 if has_input {
@@ -195,9 +281,14 @@ pub(crate) fn render_controls(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Co
             ui.add_space(6.0);
 
             let optimize_btn = ui.add(
-                egui::Button::new(RichText::new("✨  Optimiser le CV").size(14.0))
-                    .min_size(Vec2::new(160.0, 32.0))
-                    .fill(Color32::from_rgb(30, 90, 45)),
+                egui::Button::new(
+                    RichText::new("✨  Optimiser le CV")
+                        .size(13.0)
+                        .color(Color32::WHITE),
+                )
+                .min_size(Vec2::new(155.0, 30.0))
+                .fill(ACCENT_PRIMARY)
+                .rounding(egui::Rounding::same(RADIUS_SM)),
             );
             if optimize_btn.clicked() {
                 if has_input {
@@ -208,11 +299,14 @@ pub(crate) fn render_controls(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Co
             }
 
             // 6.4 — Reset button
-            ui.add_space(12.0);
-            if ui
-                .button(RichText::new("🔄 Réinitialiser").size(13.0))
-                .clicked()
-            {
+            ui.add_space(GAP_MD);
+            let reset_btn = egui::Button::new(
+                RichText::new("🔄 Réinitialiser")
+                    .size(13.0)
+                    .color(TEXT_MUTED),
+            )
+            .frame(false);
+            if ui.add(reset_btn).clicked() {
                 app.cv_text.clear();
                 app.job_text.clear();
                 app.audit_state = AuditState::Idle;
@@ -228,7 +322,7 @@ pub(crate) fn render_controls(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Co
                 ui.label(
                     RichText::new("⚠  Remplissez les deux champs")
                         .size(12.0)
-                        .color(COL_YELLOW),
+                        .color(STATUS_WARNING),
                 );
             }
         }
@@ -246,7 +340,6 @@ pub(crate) fn render_results(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Con
     } else {
         None
     };
-
     let adapt_data: Option<(String, AuditReport)> =
         if let AdaptState::Done { markdown, audit } = &app.adapt_state {
             Some((markdown.clone(), audit.clone()))
@@ -259,33 +352,97 @@ pub(crate) fn render_results(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Con
         None
     };
     let audit_is_idle = matches!(app.audit_state, AuditState::Idle);
+    let adapt_is_idle = matches!(app.adapt_state, AdaptState::Idle);
+
+    // P5.1 — empty state until an analysis or optimization is requested.
+    if audit_is_idle && adapt_is_idle {
+        render_results_empty_state(ui);
+        return;
+    }
 
     if let Some(msg) = audit_error {
-        ui.separator();
-        ui.add_space(6.0);
+        ui.add_space(GAP_SM);
         error_line(ui, &msg);
     } else if let Some(report) = &audit_report {
-        ui.separator();
-        ui.add_space(6.0);
-        render_audit_panel(ui, report);
+        ui.add_space(GAP_SM);
+        card_frame().show(ui, |ui| render_audit_panel(ui, report));
     }
 
     if let Some(msg) = adapt_error {
-        if audit_is_idle {
-            ui.separator();
-            ui.add_space(6.0);
-        }
+        ui.add_space(GAP_SM);
         error_line(ui, &msg);
     } else if let Some((markdown, audit)) = adapt_data {
         if audit_is_idle {
-            ui.separator();
-            ui.add_space(6.0);
-            render_audit_panel(ui, &audit);
+            ui.add_space(GAP_SM);
+            card_frame().show(ui, |ui| render_audit_panel(ui, &audit));
         }
-        ui.separator();
-        ui.add_space(6.0);
-        render_adapted_panel(app, ui, ctx, &markdown, &audit);
+        ui.add_space(GAP_SM);
+        card_frame().show(ui, |ui| {
+            render_adapted_panel(app, ui, ctx, &markdown, &audit)
+        });
     }
+}
+
+/// Placeholder shown in the results area before any analysis is run.
+fn render_results_empty_state(ui: &mut Ui) {
+    ui.add_space(48.0);
+    ui.vertical_centered(|ui| {
+        let (rect, _) = ui.allocate_exact_size(Vec2::splat(54.0), egui::Sense::hover());
+        let painter = ui.painter_at(rect);
+        let center = rect.center();
+        painter.circle_stroke(center, 20.0, egui::Stroke::new(3.0, BORDER_SUBTLE));
+        painter.circle_filled(center, 6.0, BORDER_SUBTLE);
+
+        ui.add_space(GAP_MD);
+        ui.label(
+            RichText::new("Les résultats apparaîtront ici")
+                .size(15.0)
+                .color(TEXT_SECONDARY),
+        );
+        ui.add_space(4.0);
+        ui.label(
+            RichText::new("Collez votre CV et une offre, puis cliquez sur Analyser ou Optimiser")
+                .size(12.0)
+                .color(TEXT_MUTED),
+        );
+    });
+    ui.add_space(48.0);
+}
+
+/// A labelled mini progress bar: title on the left, percentage on the right,
+/// and a 6 px colored track below (color follows the gauge thresholds).
+fn render_sub_score(ui: &mut Ui, label: &str, ratio: f32) {
+    let ratio = ratio.clamp(0.0, 1.0);
+    ui.horizontal(|ui| {
+        ui.label(RichText::new(label).size(11.0).color(TEXT_SECONDARY));
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            ui.label(
+                RichText::new(format!("{:.0}%", ratio * 100.0))
+                    .size(11.0)
+                    .color(TEXT_SECONDARY),
+            );
+        });
+    });
+    ui.add_space(3.0);
+
+    let height = 6.0;
+    let (rect, _) = ui.allocate_exact_size(
+        Vec2::new(ui.available_width(), height),
+        egui::Sense::hover(),
+    );
+    let painter = ui.painter_at(rect);
+    let rounding = egui::Rounding::same(height / 2.0);
+    painter.rect_filled(rect, rounding, BORDER_SUBTLE);
+    let fill_w = rect.width() * ratio;
+    if fill_w > 0.5 {
+        let fill_rect = egui::Rect::from_min_size(rect.min, Vec2::new(fill_w, height));
+        painter.rect_filled(fill_rect, rounding, ratio_color(ratio));
+    }
+}
+
+/// Maps a 0..1 ratio to the shared gauge color scale.
+fn ratio_color(ratio: f32) -> Color32 {
+    score_color((ratio * 100.0).round().clamp(0.0, 100.0) as u8)
 }
 
 fn render_audit_panel(ui: &mut Ui, report: &AuditReport) {
@@ -293,17 +450,9 @@ fn render_audit_panel(ui: &mut Ui, report: &AuditReport) {
         ui.vertical(|ui| {
             ui.set_width(150.0);
             render_gauge(ui, report.score.score);
-            ui.add_space(4.0);
-            ui.centered_and_justified(|ui| {
-                ui.label(
-                    RichText::new(format!(
-                        "{:.0}% match",
-                        report.score.skill_match_ratio * 100.0
-                    ))
-                    .size(12.0)
-                    .color(COL_MUTED),
-                );
-            });
+            ui.add_space(GAP_MD);
+            // P5.4 — skill-match sub-score (the only ratio AuditScore exposes today).
+            render_sub_score(ui, "Compétences", report.score.skill_match_ratio);
         });
 
         ui.add_space(20.0);
@@ -312,7 +461,7 @@ fn render_audit_panel(ui: &mut Ui, report: &AuditReport) {
             ui.label(
                 RichText::new("✅  Compétences matchées")
                     .strong()
-                    .color(COL_GREEN),
+                    .color(STATUS_SUCCESS),
             );
             ui.add_space(4.0);
             ui.horizontal_wrapped(|ui| {
@@ -321,11 +470,11 @@ fn render_audit_panel(ui: &mut Ui, report: &AuditReport) {
                         RichText::new("aucune")
                             .italics()
                             .size(12.0)
-                            .color(COL_MUTED),
+                            .color(TEXT_SECONDARY),
                     );
                 }
                 for s in &report.matched_skills {
-                    skill_chip(ui, s, COL_GREEN);
+                    skill_chip(ui, s, STATUS_SUCCESS);
                 }
             });
 
@@ -334,7 +483,7 @@ fn render_audit_panel(ui: &mut Ui, report: &AuditReport) {
             ui.label(
                 RichText::new("❌  Compétences manquantes")
                     .strong()
-                    .color(COL_RED),
+                    .color(STATUS_ERROR),
             );
             ui.add_space(4.0);
             ui.horizontal_wrapped(|ui| {
@@ -343,11 +492,11 @@ fn render_audit_panel(ui: &mut Ui, report: &AuditReport) {
                         RichText::new("aucune")
                             .italics()
                             .size(12.0)
-                            .color(COL_MUTED),
+                            .color(TEXT_SECONDARY),
                     );
                 }
                 for s in &report.missing_skills {
-                    skill_chip(ui, s, COL_RED);
+                    skill_chip(ui, s, STATUS_ERROR);
                 }
             });
 
@@ -356,29 +505,29 @@ fn render_audit_panel(ui: &mut Ui, report: &AuditReport) {
             egui::CollapsingHeader::new(
                 RichText::new("▸ Détail complet des compétences")
                     .size(12.0)
-                    .color(COL_MUTED),
+                    .color(TEXT_SECONDARY),
             )
             .default_open(false)
             .show(ui, |ui| {
                 ui.label(
                     RichText::new("CV — toutes les compétences détectées")
                         .size(11.0)
-                        .color(COL_MUTED),
+                        .color(TEXT_SECONDARY),
                 );
                 ui.horizontal_wrapped(|ui| {
                     for s in &report.cv_skills {
-                        skill_chip(ui, s, COL_YELLOW);
+                        skill_chip(ui, s, STATUS_WARNING);
                     }
                 });
                 ui.add_space(6.0);
                 ui.label(
                     RichText::new("Offre — compétences requises")
                         .size(11.0)
-                        .color(COL_MUTED),
+                        .color(TEXT_SECONDARY),
                 );
                 ui.horizontal_wrapped(|ui| {
                     for s in &report.job_skills {
-                        skill_chip(ui, s, COL_YELLOW);
+                        skill_chip(ui, s, STATUS_WARNING);
                     }
                 });
             });
@@ -388,22 +537,22 @@ fn render_audit_panel(ui: &mut Ui, report: &AuditReport) {
                 egui::CollapsingHeader::new(
                     RichText::new("▸ Pourquoi ce score ?")
                         .size(12.0)
-                        .color(COL_MUTED),
+                        .color(TEXT_SECONDARY),
                 )
                 .default_open(true)
                 .show(ui, |ui| {
                     for r in &report.explanations {
                         let (label, color) = match r.status {
-                            SkillStatus::Present => ("✅ présent", COL_GREEN),
-                            SkillStatus::Missing => ("❌ manquant", COL_RED),
-                            SkillStatus::Weak => ("⚠ faible", COL_YELLOW),
+                            SkillStatus::Present => ("✅ présent", STATUS_SUCCESS),
+                            SkillStatus::Missing => ("❌ manquant", STATUS_ERROR),
+                            SkillStatus::Weak => ("⚠ faible", STATUS_WARNING),
                         };
                         ui.horizontal(|ui| {
                             ui.label(RichText::new(&r.skill).size(12.0).color(color));
                             ui.label(
                                 RichText::new(format!("— {} ({} occ.)", label, r.occurrences))
                                     .size(11.0)
-                                    .color(COL_MUTED),
+                                    .color(TEXT_SECONDARY),
                             );
                         });
                     }
@@ -411,8 +560,6 @@ fn render_audit_panel(ui: &mut Ui, report: &AuditReport) {
             }
         });
     });
-
-    ui.add_space(8.0);
 }
 
 fn render_adapted_panel(
@@ -491,9 +638,9 @@ fn render_adapted_panel(
             ui.spinner();
         } else if let Some((status, _)) = &app.export_feedback {
             let color = if status.starts_with('✅') {
-                COL_GREEN
+                STATUS_SUCCESS
             } else {
-                COL_RED
+                STATUS_ERROR
             };
             ui.add_space(8.0);
             ui.label(RichText::new(status).size(12.0).color(color));
