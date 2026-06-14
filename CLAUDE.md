@@ -143,24 +143,25 @@ cargo fmt --check
 - Exemples : `feat(llm): add Anthropic provider`, `fix(validation): reject empty skill strings`
 - Ne jamais force-push sur `master`
 
-## Infrastructure Manquante (à créer)
+## Infrastructure (livrée ✅)
 
-| Item | Priorité | Description |
-|------|----------|-------------|
-| `.github/workflows/ci.yml` | **Haute** | fmt + clippy -D + test + cargo-audit |
-| `deny.toml` (cargo-deny) | Haute | licenses allowlist (MIT/Apache-2) + bans + CVE scan |
-| `docs/adr/` | Moyenne | ADR-0001 anti-hallucination, ADR-0002 multi-provider trait, ADR-0003 egui |
-| `ARCHITECTURE.md` | Moyenne | Thread model, pipeline anti-hal, ownership modules |
-| README : table providers | Faible | Ajouter ligne Gemini (GUI-only, OAuth2 PKCE) |
+| Item | Statut | Description |
+|------|--------|-------------|
+| `.github/workflows/ci.yml` | ✅ | fmt + clippy -D + test + cargo-deny + cargo-audit |
+| `deny.toml` (cargo-deny) | ✅ | licenses allowlist (MIT/Apache-2) + bans + CVE scan |
+| `docs/adr/` (ADR-0001 → ADR-0008) | ✅ | Anti-hal, LLM trait, egui, Gemini OAuth2, PDF, cache, auth, offline |
+| `ARCHITECTURE.md` | ✅ | Thread model, pipeline anti-hal, ownership modules |
+| README : table providers | ✅ | Gemini GUI-only (OAuth2 PKCE) documenté |
 
-> Référence : Vectora a 6 CI jobs bloquants depuis le 1er commit. Seno a clippy/test gates.
-> HireLens n'en a aucun — toute PR peut introduire un warning ou un test cassé silencieusement.
+## ADRs — Décisions documentées
 
-## ADRs — Décisions à documenter
-
-Créer `docs/adr/` quand une décision est prise. Décisions déjà actées à documenter :
-
-- **ADR-0001** : Anti-hallucination via validation Rust post-LLM (pas de guardrails LLM)
-- **ADR-0002** : `trait LlmProvider` + router — abstraction multi-provider sans couplage
-- **ADR-0003** : egui/eframe 0.29 pour la GUI (même stack que Seno DAW — capital réutilisable)
-- **ADR-0004** : Gemini GUI-only via OAuth2 PKCE (pas de clé API exposée)
+| ADR | Sujet |
+|-----|-------|
+| **ADR-0001** | Anti-hallucination via validation Rust post-LLM |
+| **ADR-0002** | `trait LlmProvider` + router multi-provider |
+| **ADR-0003** | egui/eframe 0.29 pour la GUI |
+| **ADR-0004** | Gemini GUI-only via OAuth2 PKCE |
+| **ADR-0005** | PDF renderer trait |
+| **ADR-0006** | Word boundary + provider cache key |
+| **ADR-0007** | Gemini OAuth embarqué + clé API par utilisateur |
+| **ADR-0008** | Moteur offline déterministe (zéro génération, sélection par index) |
