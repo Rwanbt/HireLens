@@ -23,6 +23,20 @@ const MIN_TOKEN_LEN: usize = 3;
 /// where `sat(tf) = tf / (tf + K1)` (0 when absent, →1 as frequency grows).
 pub fn lexical_similarity(job_text: &str, cv_text: &str) -> f32 {
     let query = significant_term_set(job_text);
+    lexical_similarity_with_query(cv_text, &query)
+}
+
+/// Pre-compute the unique significant terms of a job text so the same query
+/// can be scored against many CV bullets without re-tokenising the job each
+/// time (RFC §0.2, perf guard-fou — ChatGPT/DeepSeek).
+pub fn query_terms(job_text: &str) -> Vec<String> {
+    significant_term_set(job_text)
+}
+
+/// Score `cv_text` against a pre-computed query (returned by [`query_terms`]).
+/// Equivalent to `lexical_similarity(job_text, cv_text)` but avoids repeating
+/// the job tokenisation when the same query is used many times.
+pub fn lexical_similarity_with_query(cv_text: &str, query: &[String]) -> f32 {
     if query.is_empty() {
         return 0.0;
     }

@@ -9,7 +9,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::core::matching::weighted_requirements;
-use crate::core::similarity::lexical_similarity;
+use crate::core::similarity::{lexical_similarity_with_query, query_terms};
 use crate::core::skills::{extract_local_skills, normalize_skill, skill_category};
 use crate::core::text::tokenize;
 use crate::core::{Cv, Experience, JobDescription};
@@ -60,9 +60,12 @@ pub struct OfflineBullet {
 /// the original `bullets`, so every emitted string is a verbatim copy.
 pub fn run(cv: &Cv, job: &JobDescription, allowed_skills: &[String]) -> OfflineMatchResult {
     let requirement_weights = requirement_weight_map(job);
+    // Pre-compute job query terms once; reused for every bullet in select_bullets
+    // instead of re-tokenising job.raw_text N times (RFC §0.2 perf guard-fou).
+    let job_query = query_terms(&job.raw_text);
     OfflineMatchResult {
         prioritized_skills: prioritize_skills(job, allowed_skills),
-        selected_bullets: select_bullets(cv, job, &requirement_weights),
+        selected_bullets: select_bullets(cv, &job_query, &requirement_weights),
     }
 }
 
@@ -102,12 +105,12 @@ fn prioritize_skills(job: &JobDescription, allowed_skills: &[String]) -> Vec<Str
 /// never a reconstruction (anti-hal §8).
 fn select_bullets(
     cv: &Cv,
-    job: &JobDescription,
+    job_query: &[String],
     weights: &HashMap<String, f32>,
 ) -> Vec<OfflineBullet> {
     let mut selected = Vec::new();
     for experience in &cv.experience {
-        for index in top_bullet_indices(experience, job, weights) {
+        for index in top_bullet_indices(experience, job_query, weights) {
             selected.push(OfflineBullet {
                 experience_id: experience.id.clone(),
                 bullet: experience.bullets[index].clone(),
@@ -125,7 +128,7 @@ fn select_bullets(
 /// bullets. Ties break on the original bullet index (lower = earlier).
 fn top_bullet_indices(
     experience: &Experience,
-    job: &JobDescription,
+    job_query: &[String],
     weights: &HashMap<String, f32>,
 ) -> Vec<usize> {
     // (original_index, relevance, skill_set)
@@ -134,7 +137,7 @@ fn top_bullet_indices(
         .iter()
         .enumerate()
         .map(|(idx, bullet)| {
-            let rel = relevance(bullet, job, weights);
+            let rel = relevance(bullet, job_query, weights);
             let skills: HashSet<String> = extract_local_skills(bullet).into_iter().collect();
             (idx, rel, skills)
         })
@@ -183,12 +186,14 @@ fn mmr_effective(rel: f32, skills: &HashSet<String>, covered: &HashSet<String>) 
 
 /// `(alpha · job-skill-weight-in-bullet + beta · lexical_sim) × length_norm`
 /// (RFC §5.6). Short and date-only bullets are penalised by `length_norm`.
-fn relevance(bullet: &str, job: &JobDescription, weights: &HashMap<String, f32>) -> f32 {
+/// Accepts pre-computed `job_query` (from `query_terms`) to avoid re-tokenising
+/// the job text for every bullet.
+fn relevance(bullet: &str, job_query: &[String], weights: &HashMap<String, f32>) -> f32 {
     let skill_score: f32 = extract_local_skills(bullet)
         .iter()
         .filter_map(|skill| weights.get(skill))
         .sum();
-    let lexical = lexical_similarity(bullet, &job.raw_text);
+    let lexical = lexical_similarity_with_query(bullet, job_query);
     (ALPHA_SKILL * skill_score + BETA_LEXICAL * lexical) * length_norm(bullet)
 }
 
