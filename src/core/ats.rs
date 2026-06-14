@@ -1,7 +1,9 @@
 use hashbrown::HashSet;
 use serde::{Deserialize, Serialize};
 
-use crate::core::matching::{count_skill_occurrences, keyword_coverage, ScoreReason, SkillStatus};
+use crate::core::matching::{
+    count_skill_occurrences, keyword_coverage, weighted_requirements, ScoreReason, SkillStatus,
+};
 use crate::core::similarity::lexical_similarity;
 use crate::core::skills::{normalize_skill, skill_set};
 use crate::core::{Cv, JobDescription};
@@ -62,13 +64,42 @@ pub fn compute_audit(cv: &Cv, job: &JobDescription) -> AuditReport {
         .collect();
 
     let keyword_score = keyword_coverage(&job.raw_text, &cv.raw_markdown);
-    let structure_score = structure_completeness(cv);
+    let sections = present_sections(cv);
+    let structure_score = sections as f32 / CORE_SECTIONS;
     let lexical_score = lexical_similarity(&job.raw_text, &cv.raw_markdown);
+
+    // skill_cov is weighted by the job's requirement weights (RFC §5.5), not a
+    // raw count ratio. No dictionary skill in the job → non-tech blend.
+    let requirements = weighted_requirements(job);
+    let total_weight: f32 = requirements.iter().map(|req| req.weight).sum();
+    let matched_weight: f32 = requirements
+        .iter()
+        .filter(|req| cv_skills.contains(&req.skill))
+        .map(|req| req.weight)
+        .sum();
+    let non_tech = total_weight == 0.0;
+    let skill_cov = if non_tech {
+        0.0
+    } else {
+        matched_weight / total_weight
+    };
+
+    let score = if is_empty_input(cv, job) {
+        0
+    } else {
+        blend(&MatchSignals {
+            skill_cov,
+            keyword_cov: keyword_score,
+            lexical_sim: lexical_score,
+            structure_factor: structure_factor(sections),
+            non_tech,
+        })
+    };
 
     AuditReport {
         score: AtsScore {
             skill_match_ratio: ratio,
-            score: (ratio * 100.0).round().clamp(0.0, 100.0) as u8,
+            score,
             keyword_score,
             structure_score,
             lexical_score,
@@ -106,21 +137,78 @@ fn sorted(values: HashSet<String>) -> Vec<String> {
     values
 }
 
-/// Fraction of the three core ATS sections (skills, experience, education)
-/// present in the parsed CV.
-fn structure_completeness(cv: &Cv) -> f32 {
-    const CORE_SECTIONS: f32 = 3.0;
-    let mut present = 0.0;
-    if !cv.skills.is_empty() {
-        present += 1.0;
+/// Total core ATS sections scored (skills, experience, education).
+const CORE_SECTIONS: f32 = 3.0;
+
+/// Blend weights for a tech job (Σ = 1). Config wiring is P4 (RFC §13).
+const W_SKILL: f32 = 0.45;
+const W_KEYWORD: f32 = 0.15;
+const W_LEXICAL: f32 = 0.40;
+/// Non-tech fallback: the skill dimension is removed and redistributed onto the
+/// lexical + keyword signals (RFC §5.5).
+const W_NONTECH_LEXICAL: f32 = 0.80;
+const W_NONTECH_KEYWORD: f32 = 0.20;
+/// In the non-tech fallback, a base below this collapses to 0 — guards against
+/// false positives when there is too little signal (RFC §0.2, Mistral).
+const NONTECH_FLOOR: f32 = 0.20;
+
+/// The four orthogonal match signals (RFC §5.5). Each ∈ [0,1] except
+/// `structure_factor`, a multiplicative gate that can only *reduce* the score.
+struct MatchSignals {
+    skill_cov: f32,
+    keyword_cov: f32,
+    lexical_sim: f32,
+    structure_factor: f32,
+    /// The job declares no dictionary skill → use the non-tech blend.
+    non_tech: bool,
+}
+
+/// Blend the signals into a 0..=100 score: a weighted sum gated multiplicatively
+/// by structure (RFC §5.5). Structure can shave at most 25 %; it never lifts a
+/// weak match.
+fn blend(signals: &MatchSignals) -> u8 {
+    debug_assert!((W_SKILL + W_KEYWORD + W_LEXICAL - 1.0).abs() < 1e-6);
+
+    let base = if signals.non_tech {
+        let base =
+            W_NONTECH_LEXICAL * signals.lexical_sim + W_NONTECH_KEYWORD * signals.keyword_cov;
+        if base < NONTECH_FLOOR {
+            return 0;
+        }
+        base
+    } else {
+        W_SKILL * signals.skill_cov
+            + W_KEYWORD * signals.keyword_cov
+            + W_LEXICAL * signals.lexical_sim
+    };
+
+    (base * signals.structure_factor * 100.0)
+        .round()
+        .clamp(0.0, 100.0) as u8
+}
+
+/// Number of core ATS sections present (skills, experience, education).
+fn present_sections(cv: &Cv) -> u8 {
+    u8::from(!cv.skills.is_empty())
+        + u8::from(!cv.experience.is_empty())
+        + u8::from(!cv.education.is_empty())
+}
+
+/// Structure gate ∈ {1.0, 0.9, 0.75} — tightened so structure cannot compensate
+/// for a weak match (RFC §0.2, max −25 %).
+fn structure_factor(sections: u8) -> f32 {
+    match sections {
+        3 => 1.0,
+        2 => 0.9,
+        _ => 0.75,
     }
-    if !cv.experience.is_empty() {
-        present += 1.0;
-    }
-    if !cv.education.is_empty() {
-        present += 1.0;
-    }
-    present / CORE_SECTIONS
+}
+
+/// Either side empty (no skills and no text) → no meaningful score.
+fn is_empty_input(cv: &Cv, job: &JobDescription) -> bool {
+    let job_empty = job.skills.is_empty() && job.raw_text.trim().is_empty();
+    let cv_empty = cv.skills.is_empty() && cv.raw_markdown.trim().is_empty();
+    job_empty || cv_empty
 }
 
 #[cfg(test)]
@@ -142,9 +230,100 @@ mod tests {
 
         let report = compute_audit(&cv, &job);
 
-        assert_eq!(report.score.score, 67);
+        // legacy raw ratio unchanged; the blended total is exercised separately.
+        assert!((report.score.skill_match_ratio - 2.0 / 3.0).abs() < 1e-6);
         assert_eq!(report.matched_skills, vec!["docker", "rust"]);
         assert_eq!(report.missing_skills, vec!["kubernetes"]);
+        assert!(report.score.score > 0 && report.score.score <= 100);
+    }
+
+    #[test]
+    fn blend_applies_weights_and_structure_gate() {
+        let full = MatchSignals {
+            skill_cov: 1.0,
+            keyword_cov: 1.0,
+            lexical_sim: 1.0,
+            structure_factor: 1.0,
+            non_tech: false,
+        };
+        assert_eq!(blend(&full), 100);
+
+        // structure gate shaves at most 25 %
+        let gated = MatchSignals {
+            structure_factor: 0.75,
+            ..full
+        };
+        assert_eq!(blend(&gated), 75);
+
+        // weights: skill-only match → 0.45
+        let skill_only = MatchSignals {
+            skill_cov: 1.0,
+            keyword_cov: 0.0,
+            lexical_sim: 0.0,
+            structure_factor: 1.0,
+            non_tech: false,
+        };
+        assert_eq!(blend(&skill_only), 45);
+    }
+
+    #[test]
+    fn non_tech_blend_has_a_floor() {
+        // too little signal → collapses to 0
+        let weak = MatchSignals {
+            skill_cov: 0.0,
+            keyword_cov: 0.1,
+            lexical_sim: 0.1,
+            structure_factor: 1.0,
+            non_tech: true,
+        };
+        assert_eq!(blend(&weak), 0);
+
+        // above the floor → scored from lexical (0.8) + keyword (0.2)
+        let ok = MatchSignals {
+            skill_cov: 0.0,
+            keyword_cov: 1.0,
+            lexical_sim: 1.0,
+            structure_factor: 1.0,
+            non_tech: true,
+        };
+        assert_eq!(blend(&ok), 100);
+    }
+
+    #[test]
+    fn golden_non_tech_french_pair() {
+        let job = JobDescription {
+            title: Some("Chargé de marketing".into()),
+            raw_text: "Recherche un chargé de marketing digital pour piloter les campagnes \
+                       publicitaires et la stratégie de contenu sur les réseaux sociaux."
+                .into(),
+            skills: vec![], // non-tech: no dictionary skill
+        };
+        let strong_cv = Cv {
+            skills: vec!["communication".into()],
+            experience: vec![Experience {
+                id: "exp-1".into(),
+                company: None,
+                role: None,
+                start: None,
+                end: None,
+                bullets: vec![],
+            }],
+            raw_markdown: "Chargé de marketing digital, j'ai piloté des campagnes publicitaires \
+                           et défini la stratégie de contenu sur les réseaux sociaux."
+                .into(),
+            ..Cv::default()
+        };
+        let weak_cv = Cv {
+            raw_markdown: "Plombier expérimenté en installation sanitaire et chauffage.".into(),
+            ..Cv::default()
+        };
+
+        let strong = compute_audit(&strong_cv, &job).score.score;
+        let weak = compute_audit(&weak_cv, &job).score.score;
+
+        assert!(strong >= 25, "strong non-tech match should score: {strong}");
+        assert_eq!(weak, 0, "unrelated CV should hit the non-tech floor");
+        assert!(strong > weak);
     }
 
     #[test]
