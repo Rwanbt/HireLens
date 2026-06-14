@@ -84,6 +84,18 @@ pub fn compute_audit(cv: &Cv, job: &JobDescription) -> AuditReport {
         matched_weight / total_weight
     };
 
+    let missing_must_haves = requirements
+        .iter()
+        .filter(|req| req.weight >= MUST_HAVE_WEIGHT && !cv_skills.contains(&req.skill))
+        .count();
+    let must_have_factor = if missing_must_haves == 0 {
+        1.0_f32
+    } else {
+        MUST_HAVE_PENALTY
+            .powi(missing_must_haves as i32)
+            .max(MUST_HAVE_FLOOR)
+    };
+
     let score = if is_empty_input(cv, job) {
         0
     } else {
@@ -92,6 +104,7 @@ pub fn compute_audit(cv: &Cv, job: &JobDescription) -> AuditReport {
             keyword_cov: keyword_score,
             lexical_sim: lexical_score,
             structure_factor: structure_factor(sections),
+            must_have_factor,
             non_tech,
         })
     };
@@ -153,21 +166,35 @@ const W_NONTECH_KEYWORD: f32 = 0.20;
 /// In the non-tech fallback, a base below this collapses to 0 — guards against
 /// false positives when there is too little signal (RFC §0.2, Mistral).
 const NONTECH_FLOOR: f32 = 0.20;
+/// Weight threshold above which a job requirement is treated as a "must-have":
+/// roughly a skill appearing ≥2× in a required context (RFC §0.2, DeepSeek).
+/// `saturate(2) × REQUIRED_BOOST ≈ 0.63 × 1.4 ≈ 0.88` exceeds this;
+/// `saturate(1) × REQUIRED_BOOST ≈ 0.39 × 1.4 ≈ 0.55` does not.
+const MUST_HAVE_WEIGHT: f32 = 0.70;
+/// Score multiplier per absent must-have skill (applied multiplicatively).
+const MUST_HAVE_PENALTY: f32 = 0.85;
+/// Floor: regardless of how many must-haves are absent, the factor cannot drop
+/// below this — avoids a catastrophic collapse for very requirement-heavy jobs.
+const MUST_HAVE_FLOOR: f32 = 0.50;
 
-/// The four orthogonal match signals (RFC §5.5). Each ∈ [0,1] except
-/// `structure_factor`, a multiplicative gate that can only *reduce* the score.
+/// The match signals (RFC §5.5). `skill_cov/keyword_cov/lexical_sim` ∈ [0,1];
+/// `structure_factor` and `must_have_factor` are multiplicative gates that can
+/// only *reduce* the score, never lift it.
 struct MatchSignals {
     skill_cov: f32,
     keyword_cov: f32,
     lexical_sim: f32,
     structure_factor: f32,
+    /// `MUST_HAVE_PENALTY^n` for n absent must-have skills, floored at
+    /// `MUST_HAVE_FLOOR` (RFC §0.2, DeepSeek). 1.0 when all present.
+    must_have_factor: f32,
     /// The job declares no dictionary skill → use the non-tech blend.
     non_tech: bool,
 }
 
 /// Blend the signals into a 0..=100 score: a weighted sum gated multiplicatively
-/// by structure (RFC §5.5). Structure can shave at most 25 %; it never lifts a
-/// weak match.
+/// by structure and must-have coverage (RFC §5.5, §0.2). Neither gate can lift a
+/// weak match; structure shaves at most 25 %, must-have at most 50 %.
 fn blend(signals: &MatchSignals) -> u8 {
     debug_assert!((W_SKILL + W_KEYWORD + W_LEXICAL - 1.0).abs() < 1e-6);
 
@@ -184,7 +211,7 @@ fn blend(signals: &MatchSignals) -> u8 {
             + W_LEXICAL * signals.lexical_sim
     };
 
-    (base * signals.structure_factor * 100.0)
+    (base * signals.structure_factor * signals.must_have_factor * 100.0)
         .round()
         .clamp(0.0, 100.0) as u8
 }
@@ -246,6 +273,7 @@ mod tests {
             keyword_cov: 1.0,
             lexical_sim: 1.0,
             structure_factor: 1.0,
+            must_have_factor: 1.0,
             non_tech: false,
         };
         assert_eq!(blend(&full), 100);
@@ -263,6 +291,7 @@ mod tests {
             keyword_cov: 0.0,
             lexical_sim: 0.0,
             structure_factor: 1.0,
+            must_have_factor: 1.0,
             non_tech: false,
         };
         assert_eq!(blend(&skill_only), 45);
@@ -276,6 +305,7 @@ mod tests {
             keyword_cov: 0.1,
             lexical_sim: 0.1,
             structure_factor: 1.0,
+            must_have_factor: 1.0,
             non_tech: true,
         };
         assert_eq!(blend(&weak), 0);
@@ -286,9 +316,68 @@ mod tests {
             keyword_cov: 1.0,
             lexical_sim: 1.0,
             structure_factor: 1.0,
+            must_have_factor: 1.0,
             non_tech: true,
         };
         assert_eq!(blend(&ok), 100);
+    }
+
+    #[test]
+    fn must_have_penalty_reduces_score_for_absent_required_skills() {
+        // one missing must-have → 0.85 factor; two → 0.85² ≈ 0.72 factor
+        let no_penalty = MatchSignals {
+            skill_cov: 1.0,
+            keyword_cov: 1.0,
+            lexical_sim: 1.0,
+            structure_factor: 1.0,
+            must_have_factor: 1.0,
+            non_tech: false,
+        };
+        let one_missing = MatchSignals {
+            must_have_factor: MUST_HAVE_PENALTY,
+            ..no_penalty
+        };
+        let two_missing = MatchSignals {
+            must_have_factor: MUST_HAVE_PENALTY * MUST_HAVE_PENALTY,
+            ..no_penalty
+        };
+        assert_eq!(blend(&no_penalty), 100);
+        assert!(blend(&one_missing) < blend(&no_penalty));
+        assert!(blend(&two_missing) < blend(&one_missing));
+        // floor: factor cannot drop below MUST_HAVE_FLOOR
+        let floored = MatchSignals {
+            must_have_factor: MUST_HAVE_FLOOR,
+            ..no_penalty
+        };
+        assert_eq!(blend(&floored), 50);
+    }
+
+    #[test]
+    fn must_have_penalty_fires_on_missing_required_skill() {
+        // "kubernetes" appears twice + required cue → weight > MUST_HAVE_WEIGHT
+        // CV has Rust but not kubernetes → must-have penalty applies
+        let job = JobDescription {
+            title: None,
+            raw_text: "Kubernetes is required. kubernetes required for all deployments."
+                .into(),
+            skills: vec!["rust".into(), "kubernetes".into()],
+        };
+        let partial_cv = Cv {
+            skills: vec!["Rust".into()],
+            raw_markdown: "Rust backend developer.".into(),
+            ..Cv::default()
+        };
+        let full_cv = Cv {
+            skills: vec!["Rust".into(), "Kubernetes".into()],
+            raw_markdown: "Rust backend developer using Kubernetes for deployments.".into(),
+            ..Cv::default()
+        };
+        let partial_score = compute_audit(&partial_cv, &job).score.score;
+        let full_score = compute_audit(&full_cv, &job).score.score;
+        assert!(
+            full_score > partial_score,
+            "covering the required skill should score higher: full={full_score} partial={partial_score}"
+        );
     }
 
     #[test]
