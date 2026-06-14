@@ -88,6 +88,10 @@ pub struct HireLensApp {
     pub(crate) settings_status: Option<String>,
     pub(crate) openai_key_input: String,
     pub(crate) openai_key_visible: bool,
+    pub(crate) gemini_key_input: String,
+    pub(crate) gemini_key_visible: bool,
+    /// Cached "Gemini is usable" flag — avoids keyring I/O on every frame.
+    pub(crate) gemini_available: bool,
 
     // ── Google OAuth2 ──
     pub(crate) google_auth_rx: Option<mpsc::Receiver<Result<(), String>>>,
@@ -109,6 +113,8 @@ pub struct HireLensApp {
 
 impl Default for HireLensApp {
     fn default() -> Self {
+        let settings = GuiSettings::load();
+        let gemini_available = gemini_is_available(&settings);
         Self {
             cv_text: String::new(),
             job_text: String::new(),
@@ -122,10 +128,13 @@ impl Default for HireLensApp {
             save_rx: None,
             pdf_rx: None,
             show_settings: false,
-            settings: GuiSettings::load(),
+            settings,
             settings_status: None,
             openai_key_input: String::new(),
             openai_key_visible: false,
+            gemini_key_input: String::new(),
+            gemini_key_visible: false,
+            gemini_available,
             google_auth_rx: None,
             ping_rx: None,
             ping_status: None,
@@ -148,6 +157,12 @@ impl HireLensApp {
 
     pub(crate) fn is_saving(&self) -> bool {
         self.save_rx.is_some() || self.pdf_rx.is_some()
+    }
+
+    /// Recomputes whether Gemini can be used. Call after the API key, stored
+    /// token, or custom OAuth client changes — never on the per-frame path.
+    pub(crate) fn refresh_gemini_available(&mut self) {
+        self.gemini_available = gemini_is_available(&self.settings);
     }
 
     #[allow(dead_code)] // used in PR 2.5 (Typst PDF export)
@@ -207,6 +222,7 @@ impl HireLensApp {
                     Err(msg) => Some(format!("❌ {msg}")),
                 };
                 self.google_auth_rx = None;
+                self.refresh_gemini_available();
             }
         }
         if let Some(rx) = &self.ping_rx {
@@ -239,8 +255,19 @@ impl HireLensApp {
             gemini_model: self.settings.gemini.model.clone(),
             gemini_client_id: self.settings.gemini.client_id.clone(),
             gemini_client_secret: self.settings.gemini.client_secret.clone(),
+            gemini_api_key: GuiSettings::get_gemini_api_key().unwrap_or_default(),
         }
     }
+}
+
+/// Whether Gemini can be used: a saved API key, a stored OAuth token, an
+/// embedded OAuth client, or a custom one. Hits the keyring, so the result is
+/// cached in `gemini_available` rather than recomputed each frame.
+fn gemini_is_available(settings: &GuiSettings) -> bool {
+    GuiSettings::get_gemini_api_key().is_some()
+        || crate::auth::load_token().is_some()
+        || !crate::auth::embedded_client().0.is_empty()
+        || !settings.gemini.client_id.is_empty()
 }
 
 // ──────────────────────────────────────────────────────────────

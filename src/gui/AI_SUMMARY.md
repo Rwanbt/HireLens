@@ -1,6 +1,6 @@
 # AI_SUMMARY — gui
 
-> **Auto-generated 2026-06-14 13:53** — do not edit manually.
+> **Auto-generated 2026-06-14 15:07** — do not edit manually.
 > Source: `tools/ai_docs/generate_ai_summary.py`
 > For purpose, thread model and constraints, read `AI_CONTEXT.md`.
 
@@ -21,14 +21,14 @@ egui/eframe user interface for HireLens. Displays inputs, triggers operations, s
 ## Files & LOC
 | File | LOC | |
 |------|-----|--|
-| `app.rs` | 220 | |
+| `app.rs` | 239 | |
 | `controller.rs` | 245 | |
 | `html_export.rs` | 92 | |
 | `mod.rs` | 47 | |
-| `settings.rs` | 90 | |
+| `settings.rs` | 119 | |
 | `state.rs` | 16 | |
 | `theme.rs` | 22 | |
-| **Total** | **732** | |
+| **Total** | **780** | |
 
 ## Rust API
 - `HireLensApp` (struct)

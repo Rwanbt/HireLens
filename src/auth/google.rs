@@ -11,6 +11,30 @@ const SCOPE: &str = "https://www.googleapis.com/auth/generativelanguage";
 const AUTH_URL: &str = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 
+/// OAuth client baked into the binary at build time via env vars (kept out of
+/// git). Empty when the build was produced without them — callers then fall back
+/// to a user-provided client or surface a clear error. For a "Desktop app" OAuth
+/// client Google treats the secret as non-confidential, so embedding it is OK.
+pub fn embedded_client() -> (String, String) {
+    (
+        option_env!("HIRELENS_GOOGLE_CLIENT_ID")
+            .unwrap_or_default()
+            .to_owned(),
+        option_env!("HIRELENS_GOOGLE_CLIENT_SECRET")
+            .unwrap_or_default()
+            .to_owned(),
+    )
+}
+
+/// Picks the user-provided OAuth client when set, otherwise the embedded one.
+fn resolve_client(client_id: &str, client_secret: &str) -> (String, String) {
+    if client_id.is_empty() {
+        embedded_client()
+    } else {
+        (client_id.to_owned(), client_secret.to_owned())
+    }
+}
+
 #[derive(Deserialize)]
 struct TokenResponse {
     access_token: String,
@@ -27,10 +51,12 @@ struct TokenResponse {
 /// Full PKCE OAuth2 flow. Blocking — call from `std::thread::spawn`.
 /// Opens the system browser and waits for the local callback.
 pub fn start_google_oauth_sync(client_id: &str, client_secret: &str) -> Result<()> {
+    let (client_id, client_secret) = resolve_client(client_id, client_secret);
     if client_id.is_empty() {
         anyhow::bail!(
-            "Google OAuth2 non configuré — client_id manquant.\n\
-             Ajoutez-le dans ⚙️ Paramètres → Gemini."
+            "Aucun identifiant Google OAuth disponible.\n\
+             Cette version n'en embarque pas — utilisez une clé API Gemini, ou\n\
+             renseignez un client OAuth dans ⚙️ Paramètres → Gemini → Avancé."
         );
     }
 
@@ -41,7 +67,7 @@ pub fn start_google_oauth_sync(client_id: &str, client_secret: &str) -> Result<(
     let state = random_hex(16);
 
     let auth_url = build_auth_url(
-        client_id,
+        &client_id,
         &redirect_uri,
         &pkce_challenge.code_challenge,
         &state,
@@ -59,8 +85,8 @@ pub fn start_google_oauth_sync(client_id: &str, client_secret: &str) -> Result<(
         .enable_all()
         .build()?
         .block_on(exchange_code(
-            client_id,
-            client_secret,
+            &client_id,
+            &client_secret,
             &code,
             &redirect_uri,
             &pkce_challenge.code_verifier,
@@ -84,11 +110,12 @@ pub async fn get_valid_access_token(client_id: &str, client_secret: &str) -> Res
         .refresh_token
         .context("Token Gemini expiré — veuillez vous reconnecter dans ⚙️ Paramètres.")?;
 
+    let (client_id, client_secret) = resolve_client(client_id, client_secret);
     if client_id.is_empty() {
-        anyhow::bail!("Google OAuth2 non configuré — client_id manquant dans ⚙️ Paramètres.");
+        anyhow::bail!("Aucun identifiant Google OAuth pour rafraîchir le token Gemini.");
     }
 
-    let new_token = refresh_access_token(client_id, client_secret, &refresh_token).await?;
+    let new_token = refresh_access_token(&client_id, &client_secret, &refresh_token).await?;
     save_token(&new_token);
     Ok(new_token.access_token)
 }

@@ -112,6 +112,38 @@ impl GuiSettings {
             let _ = entry.delete_credential();
         }
     }
+
+    pub(crate) fn get_gemini_api_key() -> Option<String> {
+        keyring::Entry::new(
+            crate::auth::KEYRING_SERVICE,
+            crate::auth::KEYRING_GEMINI_API_KEY,
+        )
+        .ok()
+        .and_then(|e| e.get_password().ok())
+        .filter(|s| !s.is_empty())
+    }
+
+    pub(crate) fn set_gemini_api_key(key: &str) -> Result<()> {
+        let entry = keyring::Entry::new(
+            crate::auth::KEYRING_SERVICE,
+            crate::auth::KEYRING_GEMINI_API_KEY,
+        )?;
+        if key.is_empty() {
+            let _ = entry.delete_credential();
+        } else {
+            entry.set_password(key)?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn delete_gemini_api_key() {
+        if let Ok(entry) = keyring::Entry::new(
+            crate::auth::KEYRING_SERVICE,
+            crate::auth::KEYRING_GEMINI_API_KEY,
+        ) {
+            let _ = entry.delete_credential();
+        }
+    }
 }
 
 // ──────────────────────────────────────────────────────────────

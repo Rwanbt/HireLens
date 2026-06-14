@@ -221,8 +221,8 @@ pub(crate) fn render_controls(app: &mut HireLensApp, ui: &mut Ui, ctx: &egui::Co
     use crate::gui::state::{AdaptState, AuditState};
 
     ui.horizontal(|ui| {
-        // 6.3 — Gemini disabled when not configured
-        let gemini_configured = !app.settings.gemini.client_id.is_empty();
+        // 6.3 — Gemini disabled when not usable (API key / token / OAuth client)
+        let gemini_configured = app.gemini_available;
         egui::ComboBox::from_id_salt("provider_combo")
             .selected_text(RichText::new(app.provider.label()).color(TEXT_SECONDARY))
             .width(180.0)

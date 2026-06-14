@@ -24,6 +24,7 @@ pub struct GuiRouterOptions {
     pub gemini_model: String,
     pub gemini_client_id: String,
     pub gemini_client_secret: String,
+    pub gemini_api_key: String,
 }
 
 #[derive(Clone)]
@@ -59,11 +60,17 @@ impl LlmRouter {
         let name = kind.as_str().to_owned();
         let provider: Arc<dyn LlmProvider> = match kind {
             LlmProviderKind::Gemini => {
-                let token = crate::auth::get_valid_access_token(
-                    &opts.gemini_client_id,
-                    &opts.gemini_client_secret,
-                )
-                .await?;
+                // Prefer a user-supplied API key (works as a Bearer token on the
+                // OpenAI-compatible endpoint); otherwise run the OAuth2 flow.
+                let token = if opts.gemini_api_key.is_empty() {
+                    crate::auth::get_valid_access_token(
+                        &opts.gemini_client_id,
+                        &opts.gemini_client_secret,
+                    )
+                    .await?
+                } else {
+                    opts.gemini_api_key.clone()
+                };
                 Arc::new(GeminiProvider::with_token(token, opts.gemini_model.clone()))
             }
             LlmProviderKind::OpenAi => Arc::new(OpenAiProvider::from_keyring_or_env()?),
