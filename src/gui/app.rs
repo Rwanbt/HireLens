@@ -103,6 +103,8 @@ pub struct HireLensApp {
     pub(crate) export_feedback: Option<(String, std::time::Instant)>,
     /// P3: selected input tab when the window is too narrow for side-by-side panels.
     pub(crate) active_tab: Tab,
+    /// P6: results panel shows the before/after diff instead of the raw markdown.
+    pub(crate) show_diff: bool,
 }
 
 impl Default for HireLensApp {
@@ -130,6 +132,7 @@ impl Default for HireLensApp {
             tried_without_input: false,
             export_feedback: None,
             active_tab: Tab::Cv,
+            show_diff: false,
         }
     }
 }

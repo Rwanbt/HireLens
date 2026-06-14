@@ -1,4 +1,5 @@
 pub mod ats;
+pub mod diff;
 pub mod matching;
 pub mod pipeline;
 pub mod skills;

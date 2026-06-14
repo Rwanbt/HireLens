@@ -1,5 +1,6 @@
 use eframe::egui::{self, Color32, RichText, ScrollArea, TextEdit, TextStyle, Ui, Vec2};
 
+use crate::core::diff::{compute_diff, DiffKind};
 use crate::core::matching::SkillStatus;
 use crate::core::AuditReport;
 use crate::gui::app::{FileTarget, HireLensApp, Provider, Tab};
@@ -448,11 +449,15 @@ fn ratio_color(ratio: f32) -> Color32 {
 fn render_audit_panel(ui: &mut Ui, report: &AuditReport) {
     ui.horizontal_top(|ui| {
         ui.vertical(|ui| {
-            ui.set_width(150.0);
+            ui.set_width(160.0);
             render_gauge(ui, report.score.score);
             ui.add_space(GAP_MD);
-            // P5.4 — skill-match sub-score (the only ratio AuditScore exposes today).
+            // P6.3 — ATS score breakdown across the three computed dimensions.
             render_sub_score(ui, "Compétences", report.score.skill_match_ratio);
+            ui.add_space(GAP_SM);
+            render_sub_score(ui, "Mots-clés", report.score.keyword_score);
+            ui.add_space(GAP_SM);
+            render_sub_score(ui, "Structure", report.score.structure_score);
         });
 
         ui.add_space(20.0);
@@ -647,22 +652,73 @@ fn render_adapted_panel(
         }
     });
 
-    ui.add_space(8.0);
+    ui.add_space(GAP_SM);
 
-    // 6.5 — no max_height cap; outer ScrollArea in app.rs handles overflow
-    let mut display = markdown.to_owned();
+    // P6.5 — toggle between the raw optimized markdown and a before/after diff.
+    ui.horizontal(|ui| {
+        if ui
+            .selectable_label(!app.show_diff, RichText::new("📝 Texte brut").size(13.0))
+            .clicked()
+        {
+            app.show_diff = false;
+        }
+        ui.add_space(GAP_SM);
+        if ui
+            .selectable_label(app.show_diff, RichText::new("🔍 Diff").size(13.0))
+            .clicked()
+        {
+            app.show_diff = true;
+        }
+    });
+    ui.add_space(GAP_SM);
+
+    if app.show_diff {
+        render_diff_view(ui, &app.cv_text, markdown);
+    } else {
+        // outer ScrollArea in app.rs handles overflow
+        let mut display = markdown.to_owned();
+        ScrollArea::vertical()
+            .id_salt("cv_output_scroll")
+            .max_height(f32::INFINITY)
+            .show(ui, |ui| {
+                ui.add(
+                    TextEdit::multiline(&mut display)
+                        .desired_width(ui.available_width())
+                        .desired_rows(18)
+                        .font(TextStyle::Monospace)
+                        .interactive(false),
+                );
+            });
+    }
+
+    ui.add_space(GAP_SM);
+}
+
+/// P6.6 — renders the before/after diff between the original CV and the optimized
+/// output. Green = added lines, red = removed; unchanged lines stay muted.
+fn render_diff_view(ui: &mut Ui, original: &str, adapted: &str) {
     ScrollArea::vertical()
-        .id_salt("cv_output_scroll")
+        .id_salt("cv_diff_scroll")
         .max_height(f32::INFINITY)
         .show(ui, |ui| {
-            ui.add(
-                TextEdit::multiline(&mut display)
-                    .desired_width(ui.available_width())
-                    .desired_rows(18)
-                    .font(TextStyle::Monospace)
-                    .interactive(false),
-            );
+            for line in compute_diff(original, adapted) {
+                let (prefix, color, bg) = match line.kind {
+                    DiffKind::Unchanged => (" ", TEXT_SECONDARY, Color32::TRANSPARENT),
+                    DiffKind::Added => ("+", STATUS_SUCCESS, diff_tint(STATUS_SUCCESS)),
+                    DiffKind::Removed => ("-", STATUS_ERROR, diff_tint(STATUS_ERROR)),
+                };
+                ui.label(
+                    RichText::new(format!("{prefix} {}", line.text))
+                        .monospace()
+                        .size(12.0)
+                        .color(color)
+                        .background_color(bg),
+                );
+            }
         });
+}
 
-    ui.add_space(8.0);
+/// Faint background tint for changed diff lines.
+fn diff_tint(color: Color32) -> Color32 {
+    Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), 26)
 }

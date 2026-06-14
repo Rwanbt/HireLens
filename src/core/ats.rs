@@ -1,7 +1,7 @@
 use hashbrown::HashSet;
 use serde::{Deserialize, Serialize};
 
-use crate::core::matching::{count_skill_occurrences, ScoreReason, SkillStatus};
+use crate::core::matching::{count_skill_occurrences, keyword_coverage, ScoreReason, SkillStatus};
 use crate::core::skills::{normalize_skill, skill_set};
 use crate::core::{Cv, JobDescription};
 
@@ -19,6 +19,12 @@ pub struct AuditReport {
 pub struct AtsScore {
     pub skill_match_ratio: f32,
     pub score: u8,
+    /// Share of job keywords literally present in the CV text (0..=1).
+    #[serde(default)]
+    pub keyword_score: f32,
+    /// Share of core ATS sections (skills, experience, education) present (0..=1).
+    #[serde(default)]
+    pub structure_score: f32,
 }
 
 pub fn compute_audit(cv: &Cv, job: &JobDescription) -> AuditReport {
@@ -51,10 +57,15 @@ pub fn compute_audit(cv: &Cv, job: &JobDescription) -> AuditReport {
         })
         .collect();
 
+    let keyword_score = keyword_coverage(&job.skills, &cv.raw_markdown);
+    let structure_score = structure_completeness(cv);
+
     AuditReport {
         score: AtsScore {
             skill_match_ratio: ratio,
             score: (ratio * 100.0).round().clamp(0.0, 100.0) as u8,
+            keyword_score,
+            structure_score,
         },
         cv_skills: sorted(cv_skills),
         job_skills: sorted(job_skills),
@@ -89,10 +100,27 @@ fn sorted(values: HashSet<String>) -> Vec<String> {
     values
 }
 
+/// Fraction of the three core ATS sections (skills, experience, education)
+/// present in the parsed CV.
+fn structure_completeness(cv: &Cv) -> f32 {
+    const CORE_SECTIONS: f32 = 3.0;
+    let mut present = 0.0;
+    if !cv.skills.is_empty() {
+        present += 1.0;
+    }
+    if !cv.experience.is_empty() {
+        present += 1.0;
+    }
+    if !cv.education.is_empty() {
+        present += 1.0;
+    }
+    present / CORE_SECTIONS
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::Cv;
+    use crate::core::{Cv, Experience};
 
     #[test]
     fn computes_skill_match_score_and_missing_skills() {
@@ -146,5 +174,34 @@ mod tests {
         let kubernetes = by_skill("kubernetes");
         assert_eq!(kubernetes.status, SkillStatus::Weak);
         assert_eq!(kubernetes.occurrences, 1);
+    }
+
+    #[test]
+    fn computes_keyword_and_structure_scores() {
+        let cv = Cv {
+            skills: vec!["Rust".into()],
+            experience: vec![Experience {
+                id: "exp-1".into(),
+                company: None,
+                role: None,
+                start: None,
+                end: None,
+                bullets: vec![],
+            }],
+            raw_markdown: "Rust developer experienced with Docker".into(),
+            ..Cv::default()
+        };
+        let job = JobDescription {
+            title: None,
+            raw_text: String::new(),
+            skills: vec!["rust".into(), "docker".into()],
+        };
+
+        let report = compute_audit(&cv, &job);
+
+        // both job keywords appear in raw_markdown → full keyword coverage
+        assert!((report.score.keyword_score - 1.0).abs() < 1e-6);
+        // skills + experience present, education missing → 2/3
+        assert!((report.score.structure_score - 2.0 / 3.0).abs() < 1e-6);
     }
 }

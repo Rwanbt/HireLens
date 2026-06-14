@@ -46,6 +46,29 @@ pub fn count_skill_occurrences(job: &JobDescription) -> Vec<SkillSignal> {
         .collect()
 }
 
+/// Fraction of `skills` that appear (word-boundary, case-insensitive) in `text`.
+/// Returns 1.0 for an empty skill list (nothing required → fully covered).
+pub fn keyword_coverage(skills: &[String], text: &str) -> f32 {
+    if skills.is_empty() {
+        return 1.0;
+    }
+    let haystack = text.to_lowercase();
+    let present = skills
+        .iter()
+        .filter(|raw| {
+            let skill = normalize_skill(raw);
+            if skill.is_empty() {
+                return false;
+            }
+            let pattern = format!(r"\b{}\b", regex::escape(&skill));
+            Regex::new(&pattern)
+                .map(|re| re.is_match(&haystack))
+                .unwrap_or(false)
+        })
+        .count();
+    present as f32 / skills.len() as f32
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -108,5 +131,23 @@ mod tests {
         assert_eq!(signals[0].occurrences, 3);
         assert_eq!(signals[1].occurrences, 2);
         assert_eq!(signals[2].occurrences, 0);
+    }
+
+    #[test]
+    fn keyword_coverage_is_ratio_of_present_skills() {
+        let skills = vec!["Rust".into(), "Docker".into(), "Kubernetes".into()];
+        let coverage = keyword_coverage(&skills, "Built Rust apps with Docker.");
+        assert!((coverage - 2.0 / 3.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn keyword_coverage_empty_skills_is_full() {
+        assert_eq!(keyword_coverage(&[], "anything"), 1.0);
+    }
+
+    #[test]
+    fn keyword_coverage_respects_word_boundary() {
+        let skills = vec!["Rust".into()];
+        assert_eq!(keyword_coverage(&skills, "I am frustrated."), 0.0);
     }
 }

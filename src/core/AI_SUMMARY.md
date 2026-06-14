@@ -1,6 +1,6 @@
 # AI_SUMMARY — core
 
-> **Auto-generated 2026-06-13 15:15** — do not edit manually.
+> **Auto-generated 2026-06-14 13:51** — do not edit manually.
 > Source: `tools/ai_docs/generate_ai_summary.py`
 > For purpose, thread model and constraints, read `AI_CONTEXT.md`.
 
@@ -20,19 +20,21 @@ Business logic of HireLens: ATS skill scoring, skill normalization, adaptation v
 ## Files & LOC
 | File | LOC | |
 |------|-----|--|
-| `ats.rs` | 120 | |
-| `matching.rs` | 74 | |
-| `mod.rs` | 35 | |
-| `pipeline.rs` | 293 | |
-| `skills.rs` | 177 | |
+| `ats.rs` | 167 | |
+| `diff.rs` | 56 | |
+| `matching.rs` | 118 | |
+| `mod.rs` | 36 | |
+| `pipeline.rs` | 303 | |
+| `skills.rs` | 174 | |
 | `validation.rs` | 142 | |
-| **Total** | **841** | |
+| **Total** | **996** | |
 
 ## Rust API
 - `AdaptedCv` (struct)
 - `AtsScore` (struct)
 - `AuditReport` (struct)
 - `Cv` (struct)
+- `DiffLine` (struct)
 - `Education` (struct)
 - `Experience` (struct)
 - `JobDescription` (struct)
@@ -40,13 +42,16 @@ Business logic of HireLens: ATS skill scoring, skill normalization, adaptation v
 - `PipelineOptions` (struct)
 - `ScoreReason` (struct)
 - `SkillSignal` (struct)
+- `DiffKind` (enum)
 - `SkillStatus` (enum)
 
 ## Rust Functions
 - `compute_audit()`
+- `compute_diff()`
 - `count_skill_occurrences()`
 - `diff_markdown()`
 - `extract_local_skills()`
+- `keyword_coverage()`
 - `merge_skills()`
 - `normalize_skill()`
 - `skill_set()`

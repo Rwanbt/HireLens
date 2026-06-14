@@ -1,6 +1,6 @@
 # AI_SUMMARY — gui
 
-> **Auto-generated 2026-06-14 13:40** — do not edit manually.
+> **Auto-generated 2026-06-14 13:53** — do not edit manually.
 > Source: `tools/ai_docs/generate_ai_summary.py`
 > For purpose, thread model and constraints, read `AI_CONTEXT.md`.
 
@@ -14,20 +14,21 @@ egui/eframe user interface for HireLens. Displays inputs, triggers operations, s
 
 ## Hot files
 - `app.rs` — HireLensApp state + all start_* methods + poll_results
-- `mod.rs` — run(), color constants (COL_*)
+- `mod.rs` — run(), `custom_visuals()` (dark theme setup)
+- `theme.rs` — design tokens (colors, radii, spacing): single source of truth
 - `views/main_view.rs` — main rendering logic
 
 ## Files & LOC
 | File | LOC | |
 |------|-----|--|
-| `app.rs` | 218 | |
+| `app.rs` | 220 | |
 | `controller.rs` | 245 | |
 | `html_export.rs` | 92 | |
 | `mod.rs` | 47 | |
 | `settings.rs` | 90 | |
 | `state.rs` | 16 | |
 | `theme.rs` | 22 | |
-| **Total** | **730** | |
+| **Total** | **732** | |
 
 ## Rust API
 - `HireLensApp` (struct)
