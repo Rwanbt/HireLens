@@ -391,4 +391,112 @@ mod tests {
         // skills + experience present, education missing → 2/3
         assert!((report.score.structure_score - 2.0 / 3.0).abs() < 1e-6);
     }
+
+    // ── P4: golden fixtures (expected bands) + property tests ──────────────
+
+    fn cv_with(skills: &[&str], markdown: &str) -> Cv {
+        Cv {
+            skills: skills.iter().map(|s| s.to_string()).collect(),
+            experience: vec![Experience {
+                id: "exp-1".into(),
+                company: None,
+                role: None,
+                start: None,
+                end: None,
+                bullets: vec!["Delivered production systems.".into()],
+            }],
+            education: vec![crate::core::Education {
+                institution: Some("State University".into()),
+                degree: Some("BSc".into()),
+                year: Some("2016".into()),
+            }],
+            raw_markdown: markdown.into(),
+            ..Cv::default()
+        }
+    }
+
+    fn job_with(skills: &[&str], raw_text: &str) -> JobDescription {
+        JobDescription {
+            title: None,
+            raw_text: raw_text.into(),
+            skills: skills.iter().map(|s| s.to_string()).collect(),
+        }
+    }
+
+    #[test]
+    fn golden_tech_strong_beats_weak() {
+        let job = job_with(
+            &["rust", "kubernetes", "postgresql"],
+            "Backend engineer in Rust deploying Kubernetes services backed by PostgreSQL.",
+        );
+        let strong = cv_with(
+            &["rust", "kubernetes", "postgresql"],
+            "Senior Rust backend engineer running Kubernetes clusters with PostgreSQL.",
+        );
+        let weak = cv_with(
+            &["php"],
+            "WordPress site builder writing PHP themes for small businesses.",
+        );
+
+        let strong_score = compute_audit(&strong, &job).score.score;
+        let weak_score = compute_audit(&weak, &job).score.score;
+
+        assert!(strong_score >= 60, "strong tech match: {strong_score}");
+        assert!(weak_score <= 25, "weak tech match: {weak_score}");
+        assert!(strong_score > weak_score);
+    }
+
+    #[test]
+    fn golden_tech_french_pair_scores() {
+        let job = job_with(
+            &["python", "docker", "aws"],
+            "Ingénieur Python requis pour conteneuriser avec Docker et déployer sur AWS.",
+        );
+        let cv = cv_with(
+            &["python", "docker", "aws"],
+            "Développeur Python expérimenté en Docker et déploiement AWS.",
+        );
+        let score = compute_audit(&cv, &job).score.score;
+        assert!(score >= 50, "FR tech match should score well: {score}");
+    }
+
+    #[test]
+    fn scores_are_bounded_and_idempotent() {
+        let cases = [
+            (
+                cv_with(&["rust"], "Rust everywhere"),
+                job_with(&["rust"], "Rust role"),
+            ),
+            (
+                cv_with(&[], "Marketing lead"),
+                job_with(&[], "Marketing strategy and content"),
+            ),
+            (
+                Cv::default(),
+                JobDescription {
+                    title: None,
+                    raw_text: String::new(),
+                    skills: vec![],
+                },
+            ),
+        ];
+        for (cv, job) in &cases {
+            let a = compute_audit(cv, job);
+            let b = compute_audit(cv, job);
+            // bounds
+            assert!(a.score.score <= 100);
+            for sub in [
+                a.score.keyword_score,
+                a.score.structure_score,
+                a.score.lexical_score,
+                a.score.skill_match_ratio,
+            ] {
+                assert!((0.0..=1.0).contains(&sub), "sub-score out of range: {sub}");
+            }
+            // idempotence: same inputs → identical serialised report
+            let ja = serde_json::to_string(&a).unwrap();
+            let jb = serde_json::to_string(&b).unwrap();
+            assert_eq!(ja, jb);
+        }
+    }
 }
