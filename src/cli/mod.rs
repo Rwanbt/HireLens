@@ -283,6 +283,7 @@ mod tests {
                 score: 50,
                 keyword_score: 0.5,
                 structure_score: 0.5,
+                lexical_score: 0.5,
             },
             cv_skills: vec!["docker".into(), "rust".into()],
             job_skills: vec!["kubernetes".into(), "rust".into()],

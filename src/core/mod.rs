@@ -3,6 +3,7 @@ pub mod diff;
 pub mod matching;
 pub mod offline_match;
 pub mod pipeline;
+pub mod similarity;
 pub mod skills;
 pub mod text;
 pub mod validation;

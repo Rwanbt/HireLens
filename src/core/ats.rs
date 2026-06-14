@@ -2,6 +2,7 @@ use hashbrown::HashSet;
 use serde::{Deserialize, Serialize};
 
 use crate::core::matching::{count_skill_occurrences, keyword_coverage, ScoreReason, SkillStatus};
+use crate::core::similarity::lexical_similarity;
 use crate::core::skills::{normalize_skill, skill_set};
 use crate::core::{Cv, JobDescription};
 
@@ -25,6 +26,9 @@ pub struct AtsScore {
     /// Share of core ATS sections (skills, experience, education) present (0..=1).
     #[serde(default)]
     pub structure_score: f32,
+    /// Lexical similarity between the job and the CV text (0..=1).
+    #[serde(default)]
+    pub lexical_score: f32,
 }
 
 pub fn compute_audit(cv: &Cv, job: &JobDescription) -> AuditReport {
@@ -59,6 +63,7 @@ pub fn compute_audit(cv: &Cv, job: &JobDescription) -> AuditReport {
 
     let keyword_score = keyword_coverage(&job.raw_text, &cv.raw_markdown);
     let structure_score = structure_completeness(cv);
+    let lexical_score = lexical_similarity(&job.raw_text, &cv.raw_markdown);
 
     AuditReport {
         score: AtsScore {
@@ -66,6 +71,7 @@ pub fn compute_audit(cv: &Cv, job: &JobDescription) -> AuditReport {
             score: (ratio * 100.0).round().clamp(0.0, 100.0) as u8,
             keyword_score,
             structure_score,
+            lexical_score,
         },
         cv_skills: sorted(cv_skills),
         job_skills: sorted(job_skills),

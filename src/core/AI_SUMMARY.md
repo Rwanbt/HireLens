@@ -1,6 +1,6 @@
 # AI_SUMMARY — core
 
-> **Auto-generated 2026-06-14 18:54** — do not edit manually.
+> **Auto-generated 2026-06-14 21:55** — do not edit manually.
 > Source: `tools/ai_docs/generate_ai_summary.py`
 > For purpose, thread model and constraints, read `AI_CONTEXT.md`.
 
@@ -20,16 +20,17 @@ Business logic of HireLens: ATS skill scoring, skill normalization, adaptation v
 ## Files & LOC
 | File | LOC | |
 |------|-----|--|
-| `ats.rs` | 167 | |
+| `ats.rs` | 171 | |
 | `diff.rs` | 56 | |
 | `matching.rs` | 260 | |
-| `mod.rs` | 38 | |
-| `offline_match.rs` | 119 | |
-| `pipeline.rs` | 316 | |
-| `skills.rs` | 417 | |
-| `text.rs` | 73 | |
+| `mod.rs` | 39 | |
+| `offline_match.rs` | 128 | |
+| `pipeline.rs` | 320 | |
+| `similarity.rs` | 74 | |
+| `skills.rs` | 448 | |
+| `text.rs` | 116 | |
 | `validation.rs` | 142 | |
-| **Total** | **1588** | |
+| **Total** | **1754** | |
 
 ## Rust API
 - `AdaptedCv` (struct)
@@ -60,10 +61,12 @@ Business logic of HireLens: ATS skill scoring, skill normalization, adaptation v
 - `fold_accents()`
 - `is_stopword()`
 - `keyword_coverage()`
+- `lexical_similarity()`
 - `merge_skills()`
 - `normalize_skill()`
 - `run()`
 - `skill_set()`
+- `tokenize()`
 - `tokenize_words()`
 - `validate_adaptation()`
 - `weighted_requirements()`

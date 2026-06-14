@@ -53,6 +53,44 @@ pub fn tokenize_words(text: &str) -> Vec<String> {
         .collect()
 }
 
+/// State-machine tokenizer that preserves symbol-bearing skill tokens
+/// (`c++`, `c#`, `f#`, `node.js`, `ci/cd`, `.net`) intact (RFC §5.2). Folds
+/// accents + lowercases. Rules, by character:
+/// - alphanumeric → part of the current token;
+/// - `+` / `#` after token content → trailing symbol kept (`c++`, `c#`);
+/// - `.` / `/` kept only when it sits *between* alphanumerics, or as a leading
+///   `.` before one (`.net`) — a trailing `.` (sentence end) is a separator;
+/// - anything else → emits the current token.
+///
+/// Used for lexical similarity, where symbol skills must survive as one token —
+/// unlike `tokenize_words`, which is the coarse keyword tokenizer.
+pub fn tokenize(text: &str) -> Vec<String> {
+    let chars: Vec<char> = fold_accents(&text.to_lowercase()).chars().collect();
+    let mut tokens = Vec::new();
+    let mut current = String::new();
+    for (index, &c) in chars.iter().enumerate() {
+        let next_is_alnum = chars
+            .get(index + 1)
+            .map(|next| next.is_alphanumeric())
+            .unwrap_or(false);
+        // A char belongs to the current token if it is alphanumeric, a trailing
+        // `+`/`#` (c++, c#), or a `.`/`/` sitting before another alphanumeric
+        // (node.js, ci/cd, leading .net). Anything else closes the token.
+        let part_of_token = c.is_alphanumeric()
+            || (matches!(c, '+' | '#') && !current.is_empty())
+            || (matches!(c, '.' | '/') && next_is_alnum);
+        if part_of_token {
+            current.push(c);
+        } else if !current.is_empty() {
+            tokens.push(std::mem::take(&mut current));
+        }
+    }
+    if !current.is_empty() {
+        tokens.push(current);
+    }
+    tokens
+}
+
 /// Replace common French accented letters with their unaccented ASCII form.
 ///
 /// Folding is for *matching only* (negation triggers, keyword comparison). The
@@ -111,5 +149,31 @@ mod tests {
         assert!(!is_stopword("car"));
         assert!(!is_stopword("pour"));
         assert!(!is_stopword("go"));
+    }
+
+    #[test]
+    fn tokenize_preserves_symbol_skills() {
+        let tokens = tokenize("Built with C++, C#, Node.js and CI/CD pipelines.");
+        assert_eq!(
+            tokens,
+            vec![
+                "built",
+                "with",
+                "c++",
+                "c#",
+                "node.js",
+                "and",
+                "ci/cd",
+                "pipelines"
+            ]
+        );
+    }
+
+    #[test]
+    fn tokenize_handles_leading_dot_and_trailing_period() {
+        // leading dot kept (.net), trailing sentence period dropped
+        assert_eq!(tokenize("Uses .NET daily."), vec!["uses", ".net", "daily"]);
+        // a trailing symbol period must not stick to the token
+        assert_eq!(tokenize("end."), vec!["end"]);
     }
 }
